@@ -48,13 +48,13 @@ func (s Storage) List() (Todos, error) {
 func (s Storage) Create(t Todo) (Todo, error) {
 	sql := `
 		INSERT INTO todo(title, description, updated) 
-		VALUES(?,?,NOW())	
+		VALUES(?,NOW())	
 	`
 
 	if t.Complete {
 		sql = `
 		INSERT INTO todo(title, description, updated, completed) 
-		VALUES(?,?,NOW(),NOW())	
+		VALUES(?,NOW(),NOW())	
 	`
 	}
 
@@ -63,7 +63,7 @@ func (s Storage) Create(t Todo) (Todo, error) {
 		return t, err
 	}
 
-	results, err := op.Exec(t.Title, t.Description)
+	results, err := op.Exec(t.Title)
 
 	id, err := results.LastInsertId()
 	if err != nil {
@@ -77,7 +77,7 @@ func (s Storage) Create(t Todo) (Todo, error) {
 
 func resultToTodo(results *sql.Rows) (Todo, error) {
 	t := Todo{}
-	if err := results.Scan(&t.ID, &t.Title, &t.Description, &t.Updated, &t.completedNull); err != nil {
+	if err := results.Scan(&t.ID, &t.Title, &t.Updated, &t.completedNull); err != nil {
 		return t, err
 	}
 
@@ -110,14 +110,14 @@ func (s Storage) Read(id string) (Todo, error) {
 func (s Storage) Update(t Todo) error {
 	sql := `
 		UPDATE todo
-		SET title = ?, description = ?, updated = NOW() 
+		SET title = ?, updated = NOW() 
 		WHERE id = ?
 	`
 
 	if t.Complete && t.Completed.IsZero() {
 		sql = `
 		UPDATE todo
-		SET title = ?, description = ?, updated = NOW(), completed = NOW() 
+		SET title = ?, updated = NOW(), completed = NOW() 
 		WHERE id = ?
 	`
 	}
@@ -127,7 +127,7 @@ func (s Storage) Update(t Todo) error {
 		return err
 	}
 
-	_, err = op.Exec(t.Title, t.Description, t.ID)
+	_, err = op.Exec(t.Title, t.ID)
 
 	if err != nil {
 		return err

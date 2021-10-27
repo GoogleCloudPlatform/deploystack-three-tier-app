@@ -1,0 +1,34 @@
+dev: db api
+
+PORT_FE=8080
+PORT_DB=3306
+PORT_API=9000
+
+fe: cleanfe
+	cd frontend && docker build -t todo-html .
+	docker run --name todo-html --expose $(PORT_FE) -p $(PORT_FE):80 todo-html
+
+db: cleandb
+	cd database && docker build -t todo-mysql .
+	docker run --name todo-mysql -p $(PORT_DB):$(PORT_DB) \
+	-e MYSQL_ROOT_PASSWORD=password -e MYSQL_ROOT_HOST=% -d todo-mysql
+
+api: cleanapi
+	cd middleware && docker build -t todo-goapi .
+	docker run --name todo-goapi --expose $(PORT_API) \
+	-p $(PORT_API):$(PORT_API)  -e PORT=$(PORT_API) -e todo_user=root \
+	-e todo_pass=password -e todo_host=host.docker.internal -e todo_name=todo  \
+	-d todo-goapi	
+
+
+cleanfe:
+	-docker stop todo-html
+	-docker rm todo-html
+
+cleandb:
+	-docker stop todo-mysql
+	-docker rm todo-mysql
+
+cleanapi:
+	-docker stop todo-goapi
+	-docker rm todo-goapi		

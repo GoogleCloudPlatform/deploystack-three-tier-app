@@ -1,0 +1,27 @@
+body{
+    width: 800px;
+    margin: 10px auto;
+    font-family: 'Lato', sans-serif;
+    font-weight: 100;
+}
+
+h1{
+    font-weight: 900;
+}
+
+.todo h1{
+    font-weight: 400;
+    font-size: 14px;
+}
+
+.todo p{
+    display: none;
+}
+
+.todo input[type=checkbox]{
+    display: inline;
+}
+
+.complete{
+    text-decoration:line-through;
+}

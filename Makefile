@@ -1,12 +1,16 @@
-dev: db api
-
+BASEDIR = $(shell pwd)
 PORT_FE=8080
 PORT_DB=3306
 PORT_API=9000
 
+dev: db api
+
+
+
 fe: cleanfe
 	cd frontend && docker build -t todo-html .
-	docker run --name todo-html --expose $(PORT_FE) -p $(PORT_FE):80 todo-html
+	docker run --name todo-html --expose $(PORT_FE) -p $(PORT_FE):80 \
+	-v $(BASEDIR)/frontend/www:/usr/share/nginx/html todo-html
 
 db: cleandb
 	cd database && docker build -t todo-mysql .

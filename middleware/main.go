@@ -174,7 +174,7 @@ func writeJSON(w http.ResponseWriter, j JSONProducer, status int) {
 		writeErrorMsg(w, err)
 		return
 	}
-	writeResponse(w, http.StatusOK, json)
+	writeResponse(w, status, json)
 	return
 }
 

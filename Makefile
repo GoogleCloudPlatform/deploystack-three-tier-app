@@ -3,9 +3,7 @@ PORT_FE=8080
 PORT_DB=3306
 PORT_API=9000
 
-dev: db api
-
-
+dev: db redis api fe
 
 fe: cleanfe
 	cd frontend && docker build -t todo-html .
@@ -22,8 +20,7 @@ api: cleanapi
 	docker run --name todo-goapi --expose $(PORT_API) \
 	-p $(PORT_API):$(PORT_API)  -e PORT=$(PORT_API) -e todo_user=root \
 	-e todo_pass=password -e todo_host=host.docker.internal -e todo_name=todo  \
-	-d todo-goapi	
-
+	-e REDISPORT=6379 -e REDISHOST=host.docker.internal -d todo-goapi	
 
 cleanfe:
 	-docker stop todo-html
@@ -36,3 +33,11 @@ cleandb:
 cleanapi:
 	-docker stop todo-goapi
 	-docker rm todo-goapi		
+
+
+redis: cleanredis
+	docker run --name todo-redis -p 6379:6379 -d redis	
+
+cleanredis:
+	-docker stop todo-redis
+	-docker rm todo-redis	

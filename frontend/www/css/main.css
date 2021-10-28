@@ -47,8 +47,20 @@ h1{
     margin: 5px 10px;
 }
 
+.editor-new{
+    display: inline-block;
+    padding-left: 10px;
+    min-width: 100px;
+}
+
 .list{
     list-style: none;
     margin-left: 0;
     padding-left: 0;
+}
+
+[contentEditable=true]:empty:not(:focus):before{
+    content:attr(data-placeholder);
+    font-style: italic;
+    color: #444;
 }

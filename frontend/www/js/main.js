@@ -29,6 +29,7 @@ function listTodos() {
 function renderListTodos(resp){
     let todos = JSON.parse(resp);
     let content = document.querySelector(".content");
+    content.innerHTML = "";
 
     let ul = document.createElement("ul");
     ul.classList.add("list")
@@ -39,10 +40,49 @@ function renderListTodos(resp){
         li.appendChild(el)
         ul.appendChild(li);
     });
+
+    let li = document.createElement("li");
+    let el = renderNewTodo()
+    li.appendChild(el)
+    ul.appendChild(li);
+
+
     content.appendChild(ul);
 
     console.log(todos)
 }
+
+function renderNewTodo(){
+    let div = document.createElement("div");
+    div.classList.add("todo");
+
+    let input = document.createElement("input");
+    input.type = "checkbox";
+    input.id = `todo-new-cb`;
+    input.disabled = true;
+
+    let editor = document.createElement("div");
+    editor.classList.add("editor");
+    editor.classList.add("editor-new");
+    editor.contentEditable = true;
+    editor.dataset.placeholder = "Type something here to add a new task. "
+    editor.id = `todo-new`;
+    editor.addEventListener("blur", createHandler);
+    editor.addEventListener("keypress", catchEnter);
+    editor.addEventListener("click", function(e){e.target.focus();e.target.innerHTML = "   "});
+
+
+    let h1 = document.createElement("h1");
+    h1.appendChild(input);
+    h1.appendChild(editor);
+
+    div.appendChild(h1);
+
+
+    return div;
+
+}
+
 
 function renderTodo(todo){
     let div = document.createElement("div");
@@ -89,6 +129,25 @@ function blurHandler(e){
     updateTodo(id, title, complete);
 }
 
+function createHandler(e){
+    let title = e.target.innerHTML;
+
+    if (title.trim().length == 0){
+        e.target.innerHTML= "";
+        return
+    }
+
+    createTodo(title);
+}
+
+function catchEnter(e){
+    if (e.key === "Enter") {
+        e.preventDefault();
+        e.target.blur();
+      }
+}
+
+
 function checkHandler(e){
     let complete = e.target.checked;
     let title = e.target.parentElement.childNodes[1].innerHTML;
@@ -119,7 +178,7 @@ function updateTodo(id, title, complete){
     xmlhttp.onreadystatechange = function() {
         if (xmlhttp.readyState == XMLHttpRequest.DONE) {   // XMLHttpRequest.DONE == 4
            if (xmlhttp.status == 200) {
-               console.log("success")
+               console.log(xmlhttp.response)
            }
            else if (xmlhttp.status == 400) {
               alert('There was an error 400');
@@ -134,19 +193,44 @@ function updateTodo(id, title, complete){
     xmlhttp.send(form);
 }
 
+function createTodo(title){
+    var xmlhttp = new XMLHttpRequest();
+    let form  = new FormData();
+    form.append("title", title);
+
+    xmlhttp.onreadystatechange = function() {
+        if (xmlhttp.readyState == XMLHttpRequest.DONE) {   // XMLHttpRequest.DONE == 4
+           if (xmlhttp.status == 201) {
+                listTodos();
+           }
+           else if (xmlhttp.status == 400) {
+              alert('There was an error 400');
+           }
+           else {
+               alert('something else other than 201 was returned');
+               console.log(xmlhttp.status);
+           }
+        }
+    };
+
+    xmlhttp.open("POST", basepath, true);
+    xmlhttp.send(form);
+}
+
 function deleteTodo(id){
     var xmlhttp = new XMLHttpRequest();
 
     xmlhttp.onreadystatechange = function() {
         if (xmlhttp.readyState == XMLHttpRequest.DONE) {   // XMLHttpRequest.DONE == 4
            if (xmlhttp.status == 204) {
-               console.log("success")
+            listTodos();
            }
            else if (xmlhttp.status == 400) {
               alert('There was an error 400');
            }
            else {
                alert('something else other than 204 was returned');
+               console.log(xmlhttp.status);
            }
         }
     };
@@ -154,6 +238,3 @@ function deleteTodo(id){
     xmlhttp.open("DELETE", basepath+"/"+ id, true);
     xmlhttp.send();
 }
-
-// TODO: Add Create new todo interface
-// TODO: Add Delete todo interface  

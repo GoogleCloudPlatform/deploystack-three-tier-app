@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"strconv"
 )
 
 // Storage is a wrapper for database operations
@@ -108,16 +109,29 @@ func (s Storage) Read(id string) (Todo, error) {
 
 // Update changes one todo in the database.
 func (s Storage) Update(t Todo) error {
+	orig, err := s.Read(strconv.Itoa(t.ID))
+	if err != nil {
+		return err
+	}
+
 	sql := `
 		UPDATE todo
 		SET title = ?, updated = NOW() 
 		WHERE id = ?
 	`
 
-	if t.Complete && t.Completed.IsZero() {
+	if t.Complete && !orig.Complete {
 		sql = `
 		UPDATE todo
 		SET title = ?, updated = NOW(), completed = NOW() 
+		WHERE id = ?
+	`
+	}
+
+	if orig.Complete && !t.Complete {
+		sql = `
+		UPDATE todo
+		SET title = ?, updated = NOW(), completed = NULL 
 		WHERE id = ?
 	`
 	}

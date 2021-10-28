@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"time"
 )
 
@@ -34,6 +35,11 @@ func (t Todo) JSONBytes() ([]byte, error) {
 	}
 
 	return bytes, nil
+}
+
+// Key returns the id as a string.
+func (t Todo) Key() string {
+	return strconv.Itoa(t.ID)
 }
 
 type Todos []Todo

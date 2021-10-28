@@ -21,14 +21,16 @@ func main() {
 	pass := os.Getenv("todo_pass")
 	host := os.Getenv("todo_host")
 	name := os.Getenv("todo_name")
+	redisHost := os.Getenv("REDISHOST")
+	redisPort := os.Getenv("REDISPORT")
 	port := os.Getenv("PORT")
 
 	fmt.Printf("Port: %s\n", port)
 
-	if err := storage.Init(user, pass, host, name); err != nil {
+	if err := storage.Init(user, pass, host, name, redisHost, redisPort, true); err != nil {
 		panic(err)
 	}
-	defer storage.Close()
+	defer storage.sqlstorage.Close()
 
 	router := mux.NewRouter().StrictSlash(true)
 	router.HandleFunc("/api/v1/todo", listHandler).Methods(http.MethodGet, http.MethodOptions)
@@ -37,7 +39,6 @@ func main() {
 	router.HandleFunc("/api/v1/todo/{id}", deleteHandler).Methods(http.MethodDelete)
 	router.HandleFunc("/api/v1/todo/{id}", updateHandler).Methods(http.MethodPost, http.MethodPut)
 
-	// Where ORIGIN_ALLOWED is like `scheme://dns[:port]`, or `*` (insecure)
 	headersOk := handlers.AllowedHeaders([]string{"X-Requested-With"})
 	originsOk := handlers.AllowedOrigins([]string{"*"})
 	methodsOk := handlers.AllowedMethods([]string{"GET", "HEAD", "POST", "PUT", "OPTIONS", "DELETE"})

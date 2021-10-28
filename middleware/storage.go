@@ -48,13 +48,13 @@ func (s Storage) List() (Todos, error) {
 // Create records a new todo in the database.
 func (s Storage) Create(t Todo) (Todo, error) {
 	sql := `
-		INSERT INTO todo(title, description, updated) 
+		INSERT INTO todo(title, updated) 
 		VALUES(?,NOW())	
 	`
 
 	if t.Complete {
 		sql = `
-		INSERT INTO todo(title, description, updated, completed) 
+		INSERT INTO todo(title, updated, completed) 
 		VALUES(?,NOW(),NOW())	
 	`
 	}

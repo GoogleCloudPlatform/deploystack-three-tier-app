@@ -49,7 +49,6 @@ function renderListTodos(resp){
 
     content.appendChild(ul);
 
-    console.log(todos)
 }
 
 function renderNewTodo(){
@@ -164,7 +163,6 @@ function checkHandler(e){
 }
 
 function deleteHandler(e){
-    console.log("delete");
     let id = e.target.id.split("-")[1];
     deleteTodo(id);
 }
@@ -178,7 +176,7 @@ function updateTodo(id, title, complete){
     xmlhttp.onreadystatechange = function() {
         if (xmlhttp.readyState == XMLHttpRequest.DONE) {   // XMLHttpRequest.DONE == 4
            if (xmlhttp.status == 200) {
-               console.log(xmlhttp.response)
+                listTodos();
            }
            else if (xmlhttp.status == 400) {
               alert('There was an error 400');

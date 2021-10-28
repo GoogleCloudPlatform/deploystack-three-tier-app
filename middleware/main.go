@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 )
 
@@ -30,12 +31,39 @@ func main() {
 	defer storage.Close()
 
 	router := mux.NewRouter().StrictSlash(true)
-	router.HandleFunc("/api/v1/todo", listHandler).Methods(http.MethodGet)
+	router.HandleFunc("/api/v1/todo", listHandler).Methods(http.MethodGet, http.MethodOptions)
 	router.HandleFunc("/api/v1/todo", createHandler).Methods(http.MethodPost)
 	router.HandleFunc("/api/v1/todo/{id}", readHandler).Methods(http.MethodGet)
 	router.HandleFunc("/api/v1/todo/{id}", deleteHandler).Methods(http.MethodDelete)
 	router.HandleFunc("/api/v1/todo/{id}", updateHandler).Methods(http.MethodPost, http.MethodPut)
-	log.Fatal(http.ListenAndServe(":"+port, router))
+
+	// Where ORIGIN_ALLOWED is like `scheme://dns[:port]`, or `*` (insecure)
+	headersOk := handlers.AllowedHeaders([]string{"X-Requested-With"})
+	originsOk := handlers.AllowedOrigins([]string{"*"})
+	methodsOk := handlers.AllowedMethods([]string{"GET", "HEAD", "POST", "PUT", "OPTIONS", "DELETE"})
+
+	log.Fatal(http.ListenAndServe(":"+port, handlers.CORS(originsOk, headersOk, methodsOk)(router)))
+}
+
+// CORSRouterDecorator applies CORS headers to a mux.Router
+type CORSRouterDecorator struct {
+	R *mux.Router
+}
+
+// ServeHTTP wraps the HTTP server enabling CORS headers.
+// For more info about CORS, visit https://www.w3.org/TR/cors/
+func (c *CORSRouterDecorator) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
+	if origin := req.Header.Get("Origin"); origin != "" {
+		rw.Header().Set("Access-Control-Allow-Origin", origin)
+		rw.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+		rw.Header().Set("Access-Control-Allow-Headers", "Accept, Accept-Language, Content-Type, YourOwnHeader")
+	}
+	// Stop here if its Preflighted OPTIONS request
+	if req.Method == "OPTIONS" {
+		return
+	}
+
+	c.R.ServeHTTP(rw, req)
 }
 
 func listHandler(w http.ResponseWriter, r *http.Request) {
@@ -162,7 +190,7 @@ func writeResponse(w http.ResponseWriter, status int, msg string) {
 	}
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.Header().Add("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type,access-control-allow-origin, access-control-allow-headers")
 	w.WriteHeader(status)
 	w.Write([]byte(msg))
 

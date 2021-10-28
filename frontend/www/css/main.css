@@ -12,6 +12,7 @@ h1{
 .todo h1{
     font-weight: 400;
     font-size: 14px;
+    vertical-align: middle;
 }
 
 .todo p{
@@ -26,4 +27,28 @@ h1{
     text-decoration:line-through;
     font-style: italic;
     color: #444;
+}
+
+.delete{
+    line-height: 0%;
+    vertical-align: middle;
+    color: #ddd;
+    display: inline-block;
+    margin-left: 10px;
+}
+
+.delete:hover{
+    color: #f00;
+    cursor: pointer;
+}
+
+.editor {
+    padding: 5px 10px;
+    margin: 5px 10px;
+}
+
+.list{
+    list-style: none;
+    margin-left: 0;
+    padding-left: 0;
 }

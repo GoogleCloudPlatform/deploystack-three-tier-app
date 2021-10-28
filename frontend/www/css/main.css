@@ -24,4 +24,6 @@ h1{
 
 .complete{
     text-decoration:line-through;
+    font-style: italic;
+    color: #444;
 }

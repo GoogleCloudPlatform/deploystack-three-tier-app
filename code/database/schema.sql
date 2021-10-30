@@ -1,3 +1,7 @@
+CREATE DATABASE IF NOT EXISTS todo;
+
+USE todo;
+
 DROP TABLE IF EXISTS `todo`;
 
 CREATE TABLE `todo` (
@@ -6,7 +10,7 @@ CREATE TABLE `todo` (
   `updated` datetime DEFAULT NULL,
   `completed` datetime DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 LOCK TABLES `todo` WRITE;
 /*!40000 ALTER TABLE `todo` DISABLE KEYS */;
@@ -19,3 +23,9 @@ VALUES
 
 /*!40000 ALTER TABLE `todo` ENABLE KEYS */;
 UNLOCK TABLES;
+
+CREATE USER 'todo_user'@'localhost' IDENTIFIED BY 'todo_pass';
+CREATE USER 'todo_user'@'%' IDENTIFIED BY 'todo_pass';
+
+GRANT ALL ON todo.* TO 'todo_user'@'localhost';
+GRANT ALL ON todo.* TO 'todo_user'@'%';

@@ -1,0 +1,34 @@
+steps:
+   - name: 'gcr.io/cloud-builders/docker'
+     args: [ 'build', '-t', 'gcr.io/$PROJECT_ID/todo-api', '.' ]
+     dir: "code/middleware"
+   - name: 'gcr.io/cloud-builders/docker'
+     args: ['push', 'gcr.io/$PROJECT_ID/todo-api']   
+   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+     entrypoint: bash
+     args: ['-c', 'gcloud run deploy todo-api --image gcr.io/$PROJECT_ID/todo-api --region us-central1 --allow-unauthenticated --vpc-connector todo-cacheconnector --add-cloudsql-instances todo-db --set-env-vars todo_user=todo_user,todo_pass=todo_pass,todo_host=$$SQLHOST,todo_name=todo,REDISPORT=6379,REDISHOST=$$REDISHOST']
+     secretEnv: ["REDISHOST","SQLHOST"]          
+   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+     entrypoint: bash
+     args: [ './massage.sh' ]
+     dir: "code/frontend"
+   - name: 'gcr.io/cloud-builders/docker'
+     args: [ 'build', '-t', 'gcr.io/$PROJECT_ID/todo-fe', '.' ]
+     dir: "code/frontend"
+   - name: 'gcr.io/cloud-builders/docker'
+     args: ['push', 'gcr.io/$PROJECT_ID/todo-fe']
+   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+     entrypoint: gcloud
+     args: [ 'run', 
+              'deploy', 
+              'todo-fe', 
+              '--image', 'gcr.io/$PROJECT_ID/todo-fe', 
+              '--region', 'us-central1', 
+              '--allow-unauthenticated', 
+              '--port', '80']    
+availableSecrets:
+  secretManager:
+  - versionName: projects/todo-attempt/secrets/sqlhost/versions/latest
+    env: 'SQLHOST'
+  - versionName: projects/todo-attempt/secrets/redishost/versions/latest
+    env: 'REDISHOST'              

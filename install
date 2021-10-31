@@ -1,0 +1,134 @@
+CYAN='\033[0;36m'
+LCYAN='\033[1;36m'
+NC='\033[0m' # No Color
+
+printf "******************************************************************************** \n"
+printf "${LCYAN}TODO INSTALL${NC} \n"
+printf "This process will create a fully functioning to do app including all infrastructure.\n"
+printf "It's going to take upwards of 20 mins \n"
+printf "******************************************************************************** \n"
+
+PROJECT=$(gcloud config get-value project | xargs)
+PROJECTNUMBER=$(gcloud projects list --filter="$PROJECT" --format="value(PROJECT_NUMBER)" | xargs)		
+SQLNAME=$PROJECT-todo-db
+REGION=us-central1
+ROOTPASSWORD=password123
+REDISNAME=todo-cache
+
+printf "******************************************************************************** \n"
+printf "Enabling services in your GCP project \n"
+gcloud services enable vpcaccess.googleapis.com || true
+gcloud services enable cloudbuild.googleapis.com || true
+gcloud services enable redis.googleapis.com || true
+gcloud services enable run.googleapis.com || true
+gcloud services enable sql-component.googleapis.com || true
+gcloud services enable sqladmin.googleapis.com || true
+gcloud services enable storage.googleapis.com || true
+gcloud services enable secretmanager.googleapis.com || true
+gcloud services enable redis.googleapis.com || true
+gcloud services enable servicenetworking.googleapis.com || true
+printf "Enabling services in your GCP project - done \n"
+
+
+
+printf "******************************************************************************** \n"
+printf "Create VPC access connector \n"
+gcloud compute networks vpc-access connectors create \
+	vpc-connector --network default --region $REGION \
+	--range 10.8.0.0/28 --no-user-output-enabled || true 	
+printf "Create VPC access connector - done \n"
+
+
+
+printf "******************************************************************************** \n"
+printf "Create Networking for SQL Instance \n"
+gcloud compute addresses create google-managed-services-vpn-connector \
+	--global --purpose=VPC_PEERING --prefix-length=16 --network=default \
+    --no-user-output-enabled || true
+gcloud services vpc-peerings connect \
+    --service=servicenetworking.googleapis.com \
+    --ranges=google-managed-services-vpn-connector \
+    --network=default || true
+printf "Create Networking for SQL Instance - done \n"  
+
+printf "******************************************************************************** \n"
+printf "Create Redis Instace \n"
+gcloud redis instances create $REDISNAME --async --size=1 --region=$REGION --no-user-output-enabled || true 	
+printf "Create Redis Instace - done \n" 
+
+printf "******************************************************************************** \n"
+printf "Create SQL Instance \n"
+gcloud beta sql instances create $SQLNAME --database-version=MYSQL_5_7 \
+	--tier=db-g1-small --region=us-central1 --root-password=$ROOTPASSWORD	\
+	--no-assign-ip --network=default || true
+printf "Create SQL Instance - done \n"    
+
+printf "******************************************************************************** \n"
+printf "Enable Build service account to deploy to Cloud Run on $PROJECT \n"
+gcloud projects add-iam-policy-binding $PROJECT \
+--member serviceAccount:$PROJECTNUMBER@cloudbuild.gserviceaccount.com \
+--role roles/run.developer --no-user-output-enabled
+printf "Enable Build service account to deploy to Cloud Run on $PROJECT - done \n"
+
+printf "******************************************************************************** \n"
+printf "Setting permissions \n"
+printf "Permissions \n"
+gcloud projects add-iam-policy-binding $PROJECT \
+  	--member serviceAccount:$PROJECTNUMBER@cloudbuild.gserviceaccount.com \
+  	--role roles/vpaccess.user --no-user-output-enabled
+gcloud projects add-iam-policy-binding $PROJECT \
+  	--member serviceAccount:$PROJECTNUMBER@cloudbuild.gserviceaccount.com \
+  	--role roles/iam.serviceAccountUser --no-user-output-enabled
+gcloud iam service-accounts add-iam-policy-binding $PROJECTNUMBER-compute@developer.gserviceaccount.com \
+	--member=serviceAccount:$PROJECTNUMBER@cloudbuild.gserviceaccount.com \
+	--role roles/iam.serviceAccountUser --no-user-output-enabled \
+	--region=us-central1
+gcloud projects add-iam-policy-binding $PROJECT \
+	--member=serviceAccount:$PROJECTNUMBER@cloudbuild.gserviceaccount.com \
+	--role=roles/run.admin --no-user-output-enabled
+gcloud iam service-accounts add-iam-policy-binding $PROJECTNUMBER-compute@developer.gserviceaccount.com \
+	--member=serviceAccount:$PROJECTNUMBER@cloudbuild.gserviceaccount.com \
+	--role roles/iam.serviceAccountUser --no-user-output-enabled
+gcloud projects add-iam-policy-binding $PROJECT \
+  	--member serviceAccount:$PROJECTNUMBER@cloudbuild.gserviceaccount.com \
+  	--role roles/secretmanager.secretAccessor --no-user-output-enabled
+printf "Setting permissions - done \n"
+
+
+
+printf "******************************************************************************** \n"
+printf "Creating Secrets \n"
+REDISHOST=$(gcloud redis instances describe $REDISNAME --region $REGION --format="value(host)" | xargs)
+SQLHOST=$(gcloud sql instances describe $SQLNAME --format="value(ipAddresses[0].ipAddress)" | xargs)
+gcloud secrets create sqlhost --replication-policy="automatic" --no-user-output-enabled || true
+echo -n $SQLHOST | xargs | gcloud secrets versions add sqlhost --data-file=-
+gcloud secrets create redishost --replication-policy="automatic" --no-user-output-enabled || true
+echo -n $REDISHOST | xargs | gcloud secrets versions add redishost --data-file=-
+printf "Creating Secrets - done \n"     
+
+printf "******************************************************************************** \n"
+printf "Populating SQL Schema and loading starting data \n"
+SQLSERVICEACCOUNT=$(gcloud sql instances describe $SQLNAME --format="value(serviceAccountEmailAddress)" | xargs)
+gsutil mb gs://$PROJECT-temp 
+gsutil cp code/database/schema.sql gs://$PROJECT-temp/schema.sql
+echo $SQLSERVICEACCOUNT
+gsutil iam ch serviceAccount:$SQLSERVICEACCOUNT:objectViewer gs://$PROJECT-temp/
+gcloud sql import sql $SQLNAME gs://$PROJECT-temp/schema.sql -q
+gsutil rm gs://$PROJECT-temp/schema.sql
+gsutil rb gs://$PROJECT-temp
+printf "Populating SQL Schema and loading starting data - done \n"
+
+printf "******************************************************************************** \n"
+printf "Deploying to Production \n"
+gcloud builds submit .
+printf "Deploying to Production - done \n"
+
+
+URL=$(gcloud run services describe todo-fe --region=$REGION --format="value(status.url)" | xargs)
+
+printf "******************************************************************************** \n"
+printf "CONGRATS!!!!!!! \n"
+printf "You have configured a project, spun up architecture and deployed code.\n"
+printf "See your application at: \n"
+printf "\n ${CYAN}$URL${NC} \n"
+printf "******************************************************************************** \n"

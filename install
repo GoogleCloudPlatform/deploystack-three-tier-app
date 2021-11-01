@@ -2,6 +2,13 @@ CYAN='\033[0;36m'
 LCYAN='\033[1;36m'
 NC='\033[0m' # No Color
 
+REGION=us-central1
+ROOTPASSWORD=password123
+PROJECT=$(gcloud config get-value project | xargs)
+PROJECTNUMBER=$(gcloud projects list --filter="$PROJECT" --format="value(PROJECT_NUMBER)" | xargs)		
+SQLNAME=$PROJECT-todo-db
+REDISNAME=todo-cache
+
 printf "******************************************************************************** \n"
 printf "${LCYAN}TODO INSTALL${NC} \n"
 printf "This process will create a fully functioning to do app including all infrastructure.\n"
@@ -13,13 +20,23 @@ read USER_PROJECT_ID
 gcloud config set project ${USER_PROJECT_ID}
 
 
+echo "Enter a Google Cloud Region [leave blank for '${REGION}']: "
+read USERREGION
 
-PROJECT=$(gcloud config get-value project | xargs)
-PROJECTNUMBER=$(gcloud projects list --filter="$PROJECT" --format="value(PROJECT_NUMBER)" | xargs)		
-SQLNAME=$PROJECT-todo-db
-REGION=us-central1
-ROOTPASSWORD=password123
-REDISNAME=todo-cache
+if [[ $USERREGION ]]
+then
+      REGION=$USERREGION
+fi
+
+
+echo "Enter a root password for the SQL Server [leave blank for '${ROOTPASSWORD}']: "
+read USERROOTPASSWORD
+
+if [[ $USERROOTPASSWORD ]]
+then
+      ROOTPASSWORD=$USERROOTPASSWORD
+fi
+
 
 printf "${LCYAN}Project Details${NC} \n"
 printf "Project ID:         $PROJECT \n"

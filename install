@@ -15,6 +15,14 @@ REGION=us-central1
 ROOTPASSWORD=password123
 REDISNAME=todo-cache
 
+printf "${LCYAN}Project Details${NC} \n"
+printf "Project ID:         $PROJECT \n"
+printf "Project Number:     $PROJECTNUMBER \n"
+printf "Region:             $REGION \n"
+printf "SQL Server Name:    $SQLNAME \n"
+printf "Redis Server Name:  $REDISNAME \n"
+
+
 printf "******************************************************************************** \n"
 printf "Enabling services in your GCP project \n"
 gcloud services enable vpcaccess.googleapis.com || true
@@ -100,9 +108,9 @@ printf "Creating Secrets \n"
 REDISHOST=$(gcloud redis instances describe $REDISNAME --region $REGION --format="value(host)" | xargs)
 SQLHOST=$(gcloud sql instances describe $SQLNAME --format="value(ipAddresses[0].ipAddress)" | xargs)
 gcloud secrets create sqlhost --replication-policy="automatic" --no-user-output-enabled || true
-printf $SQLHOST | xargs | gcloud secrets versions add sqlhost --data-file=-
+echo ${SQLHOST} | tr -d '\n' | gcloud secrets versions add sqlhost --data-file=-
 gcloud secrets create redishost --replication-policy="automatic" --no-user-output-enabled || true
-printf $REDISHOST | xargs | gcloud secrets versions add redishost --data-file=-
+echo ${REDISHOST} | tr -d '\n' | gcloud secrets versions add redishost --data-file=-
 printf "Creating Secrets - done \n"     
 
 printf "******************************************************************************** \n"

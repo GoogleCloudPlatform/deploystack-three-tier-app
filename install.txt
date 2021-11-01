@@ -3,6 +3,13 @@
 TODO INSTALL
 ********************************************************************************
 
+Before installation, create a new Google Cloud Project in which to run the todo
+application. 
+
+https://console.cloud.google.com/projectcreate
+
+You will be prompted by the install script for the project id. 
+
 To install applicaiton
 
 ./install

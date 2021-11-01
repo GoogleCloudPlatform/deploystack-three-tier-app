@@ -81,8 +81,7 @@ gcloud projects add-iam-policy-binding $PROJECT \
   	--role roles/iam.serviceAccountUser --no-user-output-enabled
 gcloud iam service-accounts add-iam-policy-binding $PROJECTNUMBER-compute@developer.gserviceaccount.com \
 	--member=serviceAccount:$PROJECTNUMBER@cloudbuild.gserviceaccount.com \
-	--role roles/iam.serviceAccountUser --no-user-output-enabled \
-	--region=us-central1
+	--role roles/iam.serviceAccountUser --no-user-output-enabled 
 gcloud projects add-iam-policy-binding $PROJECT \
 	--member=serviceAccount:$PROJECTNUMBER@cloudbuild.gserviceaccount.com \
 	--role=roles/run.admin --no-user-output-enabled

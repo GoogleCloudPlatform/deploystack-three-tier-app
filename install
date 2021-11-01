@@ -100,9 +100,9 @@ printf "Creating Secrets \n"
 REDISHOST=$(gcloud redis instances describe $REDISNAME --region $REGION --format="value(host)" | xargs)
 SQLHOST=$(gcloud sql instances describe $SQLNAME --format="value(ipAddresses[0].ipAddress)" | xargs)
 gcloud secrets create sqlhost --replication-policy="automatic" --no-user-output-enabled || true
-echo -n $SQLHOST | xargs | gcloud secrets versions add sqlhost --data-file=-
+printf $SQLHOST | xargs | gcloud secrets versions add sqlhost --data-file=-
 gcloud secrets create redishost --replication-policy="automatic" --no-user-output-enabled || true
-echo -n $REDISHOST | xargs | gcloud secrets versions add redishost --data-file=-
+printf $REDISHOST | xargs | gcloud secrets versions add redishost --data-file=-
 printf "Creating Secrets - done \n"     
 
 printf "******************************************************************************** \n"

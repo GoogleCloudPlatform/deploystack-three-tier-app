@@ -1,0 +1,7 @@
+********************************************************************************
+TODO INSTALL
+
+To install applicaiton
+
+cd todo
+./install

@@ -12,7 +12,7 @@ printf "************************************************************************
 REGION=us-central1
 ROOTPASSWORD=password123
 PROJECT=$(gcloud config get-value project | xargs)
-PROJECTNUMBER=$(gcloud projects list --filter="$PROJECT" --format="value(PROJECT_NUMBER)" | xargs)		
+	
 
 
 
@@ -47,6 +47,7 @@ fi
 # Move this here to prevent it from not having a valid project id yet. 
 SQLNAME=$PROJECT-todo-db
 REDISNAME=todo-cache
+PROJECTNUMBER=$(gcloud projects list --filter="$PROJECT" --format="value(PROJECT_NUMBER)" | xargs)	
 
 printf "${LCYAN}Project Details${NC} \n"
 printf "Project ID:         $PROJECT \n"

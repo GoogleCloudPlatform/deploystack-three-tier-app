@@ -9,6 +9,7 @@ printf "This process will create a fully functioning to do app including all inf
 printf "It's going to take upwards of 20 mins \n"
 printf "******************************************************************************** \n"
 
+REDISNAME=todo-cache
 REGION=us-central1
 ROOTPASSWORD=password123
 PROJECT=$(gcloud config get-value project | xargs)
@@ -20,9 +21,16 @@ printf "Enter the name for the project which will host the applicaition [leave b
 read USER_PROJECT_ID
 
 
+
 if [[ $USER_PROJECT_ID ]]
 then
       PROJECT=$USER_PROJECT_ID
+fi
+
+if [[ !($PROJECT) ]]
+then
+      printf "\nSorry, a Project ID must be specified \n"
+	  exit 1;
 fi
 
 gcloud config set project ${PROJECT}
@@ -44,10 +52,11 @@ then
       ROOTPASSWORD=$USERROOTPASSWORD
 fi
 
-# Move this here to prevent it from not having a valid project id yet. 
+# All of these require the project id to be set. 
 SQLNAME=$PROJECT-todo-db
-REDISNAME=todo-cache
 PROJECTNUMBER=$(gcloud projects list --filter="$PROJECT" --format="value(PROJECT_NUMBER)" | xargs)	
+SABUILD=$PROJECTNUMBER@cloudbuild.gserviceaccount.com
+SACOMPUTE=$PROJECTNUMBER-compute@developer.gserviceaccount.com
 
 printf "${LCYAN}Project Details${NC} \n"
 printf "Project ID:         $PROJECT \n"
@@ -107,30 +116,32 @@ printf "Create SQL Instance - done \n"
 printf "******************************************************************************** \n"
 printf "Enable Build service account to deploy to Cloud Run on $PROJECT \n"
 gcloud projects add-iam-policy-binding $PROJECT \
---member serviceAccount:$PROJECTNUMBER@cloudbuild.gserviceaccount.com \
+--member serviceAccount:$SABUILD \
 --role roles/run.developer --no-user-output-enabled
 printf "Enable Build service account to deploy to Cloud Run on $PROJECT - done \n"
 
 printf "******************************************************************************** \n"
 printf "Setting permissions \n"
 printf "Permissions \n"
+printf "Enabling Cloud Build Service Account to set VPN Access for Cloud Run \n"
 gcloud projects add-iam-policy-binding $PROJECT \
-  	--member serviceAccount:$PROJECTNUMBER@cloudbuild.gserviceaccount.com \
+  	--member serviceAccount:$SABUILD \
   	--role roles/vpaccess.user --no-user-output-enabled
+printf "Enabling Cloud Build Service Account to act like a Service Account? \n"
 gcloud projects add-iam-policy-binding $PROJECT \
-  	--member serviceAccount:$PROJECTNUMBER@cloudbuild.gserviceaccount.com \
+  	--member serviceAccount:$SABUILD \
   	--role roles/iam.serviceAccountUser --no-user-output-enabled
-gcloud iam service-accounts add-iam-policy-binding $PROJECTNUMBER-compute@developer.gserviceaccount.com \
-	--member=serviceAccount:$PROJECTNUMBER@cloudbuild.gserviceaccount.com \
+printf "Enabling Cloud Build Service Account to act like Compute Service Account? \n"	  
+gcloud iam service-accounts add-iam-policy-binding $SACOMPUTE \
+	--member=serviceAccount:$SABUILD \
 	--role roles/iam.serviceAccountUser --no-user-output-enabled 
+printf "Enabling Cloud Build Service Account to publish to Cloud Run \n"
 gcloud projects add-iam-policy-binding $PROJECT \
-	--member=serviceAccount:$PROJECTNUMBER@cloudbuild.gserviceaccount.com \
+	--member=serviceAccount:$SABUILD \
 	--role=roles/run.admin --no-user-output-enabled
-gcloud iam service-accounts add-iam-policy-binding $PROJECTNUMBER-compute@developer.gserviceaccount.com \
-	--member=serviceAccount:$PROJECTNUMBER@cloudbuild.gserviceaccount.com \
-	--role roles/iam.serviceAccountUser --no-user-output-enabled
+printf "Enabling Cloud Build Service Account consume secrets \n"
 gcloud projects add-iam-policy-binding $PROJECT \
-  	--member serviceAccount:$PROJECTNUMBER@cloudbuild.gserviceaccount.com \
+  	--member serviceAccount:$SABUILD \
   	--role roles/secretmanager.secretAccessor --no-user-output-enabled
 printf "Setting permissions - done \n"
 

@@ -1,0 +1,124 @@
+clear
+CYAN='\033[0;36m'
+LCYAN='\033[1;36m'
+NC='\033[0m' # No Color
+
+printf "******************************************************************************** \n"
+printf "${LCYAN}TODO UNINSTALL${NC} \n"
+printf "This process will delete a fully functioning to do app including all infrastructure.\n"
+printf "It's going to take upwards of 3 mins \n"
+printf "******************************************************************************** \n"
+
+REDISNAME=todo-cache
+REGION=us-central1
+PROJECT=$(gcloud config get-value project | xargs)
+	
+
+
+
+printf "Enter the name for the project which will host the applicaition [leave blank for ${LCYAN}'${PROJECT}'${NC}]: "
+read USER_PROJECT_ID
+
+if [[ $USER_PROJECT_ID ]]
+then
+      PROJECT=$USER_PROJECT_ID
+fi
+
+if [[ !($PROJECT) ]]
+then
+      printf "\nSorry, a Project ID must be specified \n"
+	  exit 1;
+fi
+
+gcloud config set project ${PROJECT}
+
+
+printf "Enter a Google Cloud Region [leave blank for ${LCYAN}'${REGION}'${NC}]: "
+read USERREGION
+
+if [[ $USERREGION ]]
+then
+      REGION=$USERREGION
+fi
+
+
+# All of these require the project id to be set. 
+SQLNAME=$PROJECT-todo-db
+PROJECTNUMBER=$(gcloud projects list --filter="$PROJECT" --format="value(PROJECT_NUMBER)" | xargs)	
+SABUILD=$PROJECTNUMBER@cloudbuild.gserviceaccount.com
+SACOMPUTE=$PROJECTNUMBER-compute@developer.gserviceaccount.com
+
+printf "${LCYAN}Project Details${NC} \n"
+printf "Project ID:         $PROJECT \n"
+printf "Project Number:     $PROJECTNUMBER \n"
+printf "Region:             $REGION \n"
+printf "SQL Server Name:    $SQLNAME \n"
+printf "Redis Server Name:  $REDISNAME \n"
+
+printf "******************************************************************************** \n"
+printf "Creating Secrets \n"
+gcloud secrets delete sqlhost -q --no-user-output-enabled || true
+gcloud secrets delete redishost -q --no-user-output-enabled || true
+
+
+printf "Delete Cloud Run Services \n"
+printf "******************************************************************************** \n"
+gcloud run services delete todo-fe --region=$REGION -q || true
+gcloud run services update todo-api --region=$REGION --clear-vpc-connector -q || true
+gcloud run services delete todo-api --region=$REGION -q || true
+
+printf "Delete SQL Server \n"
+printf "******************************************************************************** \n"
+gcloud sql instances delete $SQLNAME -q --async || true
+printf "Delete Redis Server  \n"
+gcloud redis instances delete $REDISNAME --region=$REGION -q --async || true
+
+
+printf "Delete VPN \n"
+printf "******************************************************************************** \n"
+gcloud compute networks vpc-access connectors delete vpc-connector --region $REGION -q || true
+gcloud compute addresses delete google-managed-services-vpn-connector \
+	--global  --no-user-output-enabled -q
+
+
+
+
+
+printf "Delete all Permissions \n"
+printf "******************************************************************************** \n"
+printf "Setting permissions \n"
+printf "Permissions \n"
+printf "Disabling Cloud Build Service Account to set VPN Access for Cloud Run \n"
+gcloud projects remove-iam-policy-binding $PROJECT \
+  	--member serviceAccount:$SABUILD \
+  	--role roles/vpaccess.user --no-user-output-enabled
+printf "Disabling Cloud Build Service Account to act like a Service Account? \n"
+gcloud projects remove-iam-policy-binding $PROJECT \
+  	--member serviceAccount:$SABUILD \
+  	--role roles/iam.serviceAccountUser --no-user-output-enabled
+printf "Disabling Cloud Build Service Account to act like Compute Service Account? \n"	  
+gcloud iam service-accounts remove-iam-policy-binding $SACOMPUTE \
+	--member=serviceAccount:$SABUILD \
+	--role roles/iam.serviceAccountUser --no-user-output-enabled 
+printf "Disabling Cloud Build Service Account to publish to Cloud Run \n"
+gcloud projects remove-iam-policy-binding $PROJECT \
+	--member=serviceAccount:$SABUILD \
+	--role=roles/run.admin --no-user-output-enabled
+printf "Disabling Cloud Build Service Account consume secrets \n"
+gcloud projects remove-iam-policy-binding $PROJECT \
+  	--member serviceAccount:$SABUILD \
+  	--role roles/secretmanager.secretAccessor --no-user-output-enabled
+printf "Setting permissions - done \n"
+
+
+printf "Disable Services \n"
+gcloud services enable vpcaccess.googleapis.com || true
+gcloud services enable cloudbuild.googleapis.com || true
+gcloud services enable redis.googleapis.com || true
+gcloud services enable run.googleapis.com || true
+gcloud services enable sql-component.googleapis.com || true
+gcloud services enable sqladmin.googleapis.com || true
+gcloud services enable storage.googleapis.com || true
+gcloud services enable secretmanager.googleapis.com || true
+gcloud services enable redis.googleapis.com || true
+gcloud services enable servicenetworking.googleapis.com || true

@@ -41,9 +41,17 @@ then
       REGION=$USERREGION
 fi
 
+SQLNAME=$PROJECT-todo-db
+printf "Enter a name for the SQL Server [leave blank for ${LCYAN}'${SQLNAME}'${NC}]: "
+read USERSQLNAME
+
+if [[ $USERSQLNAME ]]
+then
+      SQLNAME=$USERSQLNAME
+fi
+
 
 # All of these require the project id to be set. 
-SQLNAME=$PROJECT-todo-db
 PROJECTNUMBER=$(gcloud projects list --filter="$PROJECT" --format="value(PROJECT_NUMBER)" | xargs)	
 SABUILD=$PROJECTNUMBER@cloudbuild.gserviceaccount.com
 SACOMPUTE=$PROJECTNUMBER-compute@developer.gserviceaccount.com
@@ -56,38 +64,35 @@ printf "SQL Server Name:    $SQLNAME \n"
 printf "Redis Server Name:  $REDISNAME \n"
 
 printf "******************************************************************************** \n"
-printf "Creating Secrets \n"
+printf "Deleting Secrets \n"
 gcloud secrets delete sqlhost -q --no-user-output-enabled || true
 gcloud secrets delete redishost -q --no-user-output-enabled || true
 
-
-printf "Delete Cloud Run Services \n"
 printf "******************************************************************************** \n"
+printf "Delete Cloud Run Services \n"
+
 gcloud run services delete todo-fe --region=$REGION -q || true
 gcloud run services update todo-api --region=$REGION --clear-vpc-connector -q || true
 gcloud run services delete todo-api --region=$REGION -q || true
 
-printf "Delete SQL Server \n"
 printf "******************************************************************************** \n"
+printf "Delete SQL Server \n"
 gcloud sql instances delete $SQLNAME -q --async || true
+printf "******************************************************************************** \n"
 printf "Delete Redis Server  \n"
 gcloud redis instances delete $REDISNAME --region=$REGION -q --async || true
 
-
-printf "Delete VPN \n"
 printf "******************************************************************************** \n"
-gcloud compute networks vpc-access connectors delete vpc-connector --region $REGION -q || true
+printf "Delete VPN \n"
+gcloud compute networks vpc-access connectors delete vpc-connector --async --region $REGION -q || true
 gcloud compute addresses delete google-managed-services-vpn-connector \
 	--global  --no-user-output-enabled -q
 
 
 
 
-
-printf "Delete all Permissions \n"
 printf "******************************************************************************** \n"
-printf "Setting permissions \n"
-printf "Permissions \n"
+printf "Delete all Permissions \n"
 printf "Disabling Cloud Build Service Account to set VPN Access for Cloud Run \n"
 gcloud projects remove-iam-policy-binding $PROJECT \
   	--member serviceAccount:$SABUILD \
@@ -110,15 +115,5 @@ gcloud projects remove-iam-policy-binding $PROJECT \
   	--role roles/secretmanager.secretAccessor --no-user-output-enabled
 printf "Setting permissions - done \n"
 
-
-printf "Disable Services \n"
-gcloud services enable vpcaccess.googleapis.com || true
-gcloud services enable cloudbuild.googleapis.com || true
-gcloud services enable redis.googleapis.com || true
-gcloud services enable run.googleapis.com || true
-gcloud services enable sql-component.googleapis.com || true
-gcloud services enable sqladmin.googleapis.com || true
-gcloud services enable storage.googleapis.com || true
-gcloud services enable secretmanager.googleapis.com || true
-gcloud services enable redis.googleapis.com || true
-gcloud services enable servicenetworking.googleapis.com || true
+printf "******************************************************************************** \n"
+printf "All Done \n"

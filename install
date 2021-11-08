@@ -13,14 +13,10 @@ REDISNAME=todo-cache
 REGION=us-central1
 ROOTPASSWORD=password123
 PROJECT=$(gcloud config get-value project | xargs)
-	
 
-
-
+# Allow user to overide the project id. 
 printf "Enter the name for the project which will host the applicaition [leave blank for ${LCYAN}'${PROJECT}'${NC}]: "
 read USER_PROJECT_ID
-
-
 
 if [[ $USER_PROJECT_ID ]]
 then
@@ -35,7 +31,7 @@ fi
 
 gcloud config set project ${PROJECT}
 
-
+# Allow user to overide the default region. 
 printf "Enter a Google Cloud Region [leave blank for ${LCYAN}'${REGION}'${NC}]: "
 read USERREGION
 
@@ -44,7 +40,7 @@ then
       REGION=$USERREGION
 fi
 
-
+# Allow user to overide the default SQL Server name. 
 SQLNAME=$PROJECT-todo-db
 printf "Enter a name for the SQL Server [leave blank for ${LCYAN}'${SQLNAME}'${NC}]: "
 read USERSQLNAME
@@ -54,6 +50,7 @@ then
       SQLNAME=$USERSQLNAME
 fi
 
+# Allow user to overide the default SQL Server password. 
 printf "Enter a root password for the SQL Server [leave blank for ${LCYAN}'${ROOTPASSWORD}'${NC}]: "
 read USERROOTPASSWORD
 
@@ -63,7 +60,6 @@ then
 fi
 
 # All of these require the project id to be set. 
-
 PROJECTNUMBER=$(gcloud projects list --filter="$PROJECT" --format="value(PROJECT_NUMBER)" | xargs)	
 SABUILD=$PROJECTNUMBER@cloudbuild.gserviceaccount.com
 SACOMPUTE=$PROJECTNUMBER-compute@developer.gserviceaccount.com
@@ -119,7 +115,7 @@ printf "Create Redis Instance - done \n"
 printf "******************************************************************************** \n"
 printf "Create SQL Instance \n"
 gcloud beta sql instances create $SQLNAME --database-version=MYSQL_5_7 \
-	--tier=db-g1-small --region=us-central1 --root-password=$ROOTPASSWORD	\
+	--tier=db-g1-small --region=$REGION --root-password=$ROOTPASSWORD	\
 	--no-assign-ip --network=default || true
 printf "Create SQL Instance - done \n"    
 

@@ -123,20 +123,19 @@ printf "Create SQL Instance - done \n"
 
 printf "******************************************************************************** \n"
 printf "Setting permissions \n"
-printf "Permissions \n"
 printf "Enable Build service account to deploy to Cloud Run on $PROJECT \n"
 gcloud projects add-iam-policy-binding $PROJECT \
---member serviceAccount:$SABUILD \
---role roles/run.developer --no-user-output-enabled
+	--member serviceAccount:$SABUILD \
+	--role roles/run.developer --no-user-output-enabled
 printf "Enabling Cloud Build Service Account to set VPN Access for Cloud Run \n"
 gcloud projects add-iam-policy-binding $PROJECT \
   	--member serviceAccount:$SABUILD \
   	--role roles/vpaccess.user --no-user-output-enabled
-printf "Enabling Cloud Build Service Account to act like a Service Account? \n"
+printf "Enabling Cloud Build Service Account to perform Service Account activities \n"
 gcloud projects add-iam-policy-binding $PROJECT \
   	--member serviceAccount:$SABUILD \
   	--role roles/iam.serviceAccountUser --no-user-output-enabled
-printf "Enabling Cloud Build Service Account to act like Compute Service Account? \n"	  
+printf "Enabling Cloud Build Service Account to act on behalf of Compute Service Account \n"	  
 gcloud iam service-accounts add-iam-policy-binding $SACOMPUTE \
 	--member=serviceAccount:$SABUILD \
 	--role roles/iam.serviceAccountUser --no-user-output-enabled 
@@ -151,7 +150,9 @@ gcloud projects add-iam-policy-binding $PROJECT \
 printf "Setting permissions - done \n"
 
 
-
+# Using Cloud Secret Manager to store the hostname of the SQL and Redis servers
+# There isn't a better way to inject them into this process in a way that 
+# makes the clould build yaml useful outside of this script.
 printf "******************************************************************************** \n"
 printf "Creating Secrets \n"
 REDISHOST=$(gcloud redis instances describe $REDISNAME --region $REGION --format="value(host)" | xargs)

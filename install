@@ -81,7 +81,6 @@ gcloud services enable sql-component.googleapis.com || true
 gcloud services enable sqladmin.googleapis.com || true
 gcloud services enable storage.googleapis.com || true
 gcloud services enable secretmanager.googleapis.com || true
-gcloud services enable redis.googleapis.com || true
 gcloud services enable servicenetworking.googleapis.com || true
 printf "Enabling services in your GCP project - done \n"
 
@@ -123,7 +122,7 @@ printf "Create SQL Instance - done \n"
 
 printf "******************************************************************************** \n"
 printf "Setting permissions \n"
-printf "Enable Build service account to deploy to Cloud Run on $PROJECT \n"
+printf "Enabling Cloud Build Service Account to deploy to Cloud Run on $PROJECT \n"
 gcloud projects add-iam-policy-binding $PROJECT \
 	--member serviceAccount:$SABUILD \
 	--role roles/run.developer --no-user-output-enabled

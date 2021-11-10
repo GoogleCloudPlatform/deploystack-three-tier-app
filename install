@@ -74,6 +74,7 @@ printf "Redis Server Name:  $REDISNAME \n"
 printf "******************************************************************************** \n"
 printf "Enabling services in your GCP project \n"
 gcloud services enable vpcaccess.googleapis.com || true
+gcloud services enable servicenetworking.googleapis.com || true
 gcloud services enable cloudbuild.googleapis.com || true
 gcloud services enable redis.googleapis.com || true
 gcloud services enable run.googleapis.com || true
@@ -81,7 +82,6 @@ gcloud services enable sql-component.googleapis.com || true
 gcloud services enable sqladmin.googleapis.com || true
 gcloud services enable storage.googleapis.com || true
 gcloud services enable secretmanager.googleapis.com || true
-gcloud services enable servicenetworking.googleapis.com || true
 printf "Enabling services in your GCP project - done \n"
 
 

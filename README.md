@@ -33,5 +33,6 @@ This will spin up 4 containers
 1. Redis
 1. Golang API /middleware
 1. Static HTML/JS/CSS site /frontend
-s
+
+
 This is not an official Google product.

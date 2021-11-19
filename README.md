@@ -19,6 +19,10 @@ Once this opens up, you can install by:
 1. Creating a Google Cloud Project
 1. Then typing `./install`
 
+## Cleanup 
+To remove all billing components from the project
+1. Typing `./uninstall`
+
 ## Developement
 There is a development setup for this application that uses Docker to run 
 everything you need to developer and test it out locally. 

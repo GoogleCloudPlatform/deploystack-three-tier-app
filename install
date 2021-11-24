@@ -82,6 +82,7 @@ gcloud services enable sql-component.googleapis.com || true
 gcloud services enable sqladmin.googleapis.com || true
 gcloud services enable storage.googleapis.com || true
 gcloud services enable secretmanager.googleapis.com || true
+gcloud services enable artifactregistry.googleapis.com || true
 printf "Enabling services in your GCP project - done \n"
 
 
@@ -134,10 +135,10 @@ printf "Enabling Cloud Build Service Account to perform Service Account activiti
 gcloud projects add-iam-policy-binding $PROJECT \
   	--member serviceAccount:$SABUILD \
   	--role roles/iam.serviceAccountUser --no-user-output-enabled
-printf "Enabling Cloud Build Service Account to act on behalf of Compute Service Account \n"	  
-gcloud iam service-accounts add-iam-policy-binding $SACOMPUTE \
-	--member=serviceAccount:$SABUILD \
-	--role roles/iam.serviceAccountUser --no-user-output-enabled 
+# printf "Enabling Cloud Build Service Account to act on behalf of Compute Service Account \n"	  
+# gcloud iam service-accounts add-iam-policy-binding $SACOMPUTE \
+# 	--member=serviceAccount:$SABUILD \
+# 	--role roles/iam.serviceAccountUser --no-user-output-enabled 
 printf "Enabling Cloud Build Service Account to publish to Cloud Run \n"
 gcloud projects add-iam-policy-binding $PROJECT \
 	--member=serviceAccount:$SABUILD \
@@ -146,7 +147,17 @@ printf "Enabling Cloud Build Service Account to consume secrets \n"
 gcloud projects add-iam-policy-binding $PROJECT \
   	--member serviceAccount:$SABUILD \
   	--role roles/secretmanager.secretAccessor --no-user-output-enabled
+printf "Enabling Cloud Build Service Account to create content in Artifact Registry \n"
+gcloud projects add-iam-policy-binding $PROJECT \
+	--member=serviceAccount:$SABUILD \
+	--role=roles/artifactregistry.admin --no-user-output-enabled
 printf "Setting permissions - done \n"
+
+printf "******************************************************************************** \n"
+printf "Creating Artifact Registry repoistory for containers \n"
+gcloud artifacts repositories create todo-app --location=$REGION \
+    --repository-format=docker  
+printf "Creating Artifact Registry repoistory for containers - done \n"
 
 
 # Using Cloud Secret Manager to store the hostname of the SQL and Redis servers

@@ -5,7 +5,7 @@ backend along with Redis Caching to drive a API and a frontend that powers
 a simple little Todo application.  It also spins up Google Cloud infrastructure
 to power the application. 
 
-![ToDo architecture](/architecture.png)
+![ToDo architecture](architecture.png)
 
 ## Install
 You can install this application using the `Open in Google Cloud Shell` button 

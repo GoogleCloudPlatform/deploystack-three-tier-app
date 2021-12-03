@@ -1,0 +1,90 @@
+#  Copyright 2021 Google LLC
+
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+
+#       http://www.apache.org/licenses/LICENSE-2.0
+
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+
+# Display Variables
+BLACK='\033[0;30m'
+WHITE='\033[1;37m'
+CYAN='\033[0;36m'
+BCYAN='\033[1;36m'
+ONCYAN="\033[46m"
+UCYAN='\033[4;36m' 
+RED='\033[0;31m'
+BRED='\033[1;31m'
+ONRED="\033[41m"  
+NC='\033[0m' # No Color
+DIVIDER="*****************************************************************************************************\n"
+
+function collectParamters(){
+    local  __resultvar=$1
+    local ARG=$2
+    local VALUE=$2
+    local LABEL=$3
+    local DEFAULT=$4
+
+    if [[ $ARG ]]
+    then
+        VALUE=$ARG
+    else 
+        # Allow user to overide the VALUE. 
+        printf "Enter $LABEL"
+        if  [[ $DEFAULT ]]
+        then
+            VALUE=$DEFAULT
+            printf " [leave blank for ${CYAN}'${DEFAULT}'${NC}]"
+        fi
+        printf ": "
+        read USER_VALUE
+
+        if [[ $USER_VALUE ]]
+        then
+            VALUE=$USER_VALUE
+        fi
+
+    fi
+
+    if [[ !($VALUE) ]]
+    then
+        printf "\n${BRED}Sorry, $LABEL is mandatory.${NC}\n"
+        exit 1;
+    fi
+
+    eval $__resultvar="'$VALUE'"
+}
+
+function section_open(){
+      section_description=$1
+      printf "$DIVIDER"
+      printf "${CYAN}$section_description${NC} \n"
+      printf "$DIVIDER"
+}
+
+function section_close(){
+      printf "$DIVIDER"
+      printf "${CYAN}$section_description ${BCYAN}- done${NC}\n"
+      printf "\n\n"
+}
+
+function print_title(){
+	printf "$DIVIDER"
+	printf "${BCYAN}$1${NC} \n"
+	printf "$2\n"
+	if [ $3 = 1 ]
+	then
+		printf "It's going to take around 1 min \n"
+	else
+		printf "It's going to take around $3 mins \n"
+	fi
+	
+	printf "$DIVIDER"
+}

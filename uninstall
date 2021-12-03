@@ -1,98 +1,69 @@
 clear
-CYAN='\033[0;36m'
-LCYAN='\033[1;36m'
-NC='\033[0m' # No Color
+source globals
 
-printf "******************************************************************************** \n"
-printf "${LCYAN}TODO UNINSTALL${NC} \n"
-printf "This process will delete a fully functioning to do app including all infrastructure.\n"
-printf "It's going to take upwards of 3 mins \n"
-printf "******************************************************************************** \n"
+print_title "TODO UNINSTALL" "This process will delete todo app including all infrastructure." "1"
+
 
 REDISNAME=todo-cache
 REGION=us-central1
 PROJECT=$(gcloud config get-value project | xargs)
 	
 
-
-
-printf "Enter the name for the project which will host the applicaition [leave blank for ${LCYAN}'${PROJECT}'${NC}]: "
-read USER_PROJECT_ID
-
-if [[ $USER_PROJECT_ID ]]
-then
-      PROJECT=$USER_PROJECT_ID
-fi
-
-if [[ !($PROJECT) ]]
-then
-      printf "\nSorry, a Project ID must be specified \n"
-	  exit 1;
-fi
-
+collectParamters PROJECT "$1" "the id of the Google Cloud Project" "$PROJECT" 
 gcloud config set project ${PROJECT}
-
-
-printf "Enter a Google Cloud Region [leave blank for ${LCYAN}'${REGION}'${NC}]: "
-read USERREGION
-
-if [[ $USERREGION ]]
-then
-      REGION=$USERREGION
-fi
+collectParamters REGION "$2" "the Google Cloud Region" "$REGION" 
 
 SQLNAME=$PROJECT-todo-db
-printf "Enter a name for the SQL Server [leave blank for ${LCYAN}'${SQLNAME}'${NC}]: "
-read USERSQLNAME
-
-if [[ $USERSQLNAME ]]
-then
-      SQLNAME=$USERSQLNAME
-fi
-
+collectParamters SQLNAME "$3" "the Cloud SQL Database name" "$SQLNAME" 
 
 # All of these require the project id to be set. 
 PROJECTNUMBER=$(gcloud projects list --filter="$PROJECT" --format="value(PROJECT_NUMBER)" | xargs)	
 SABUILD=$PROJECTNUMBER@cloudbuild.gserviceaccount.com
 SACOMPUTE=$PROJECTNUMBER-compute@developer.gserviceaccount.com
 
-printf "${LCYAN}Project Details${NC} \n"
+printf "${BCYAN}Project Details${NC} \n"
 printf "Project ID:         $PROJECT \n"
 printf "Project Number:     $PROJECTNUMBER \n"
 printf "Region:             $REGION \n"
 printf "SQL Server Name:    $SQLNAME \n"
 printf "Redis Server Name:  $REDISNAME \n"
 
-printf "******************************************************************************** \n"
-printf "Deleting Secrets \n"
-gcloud secrets delete sqlhost -q --no-user-output-enabled || true
-gcloud secrets delete redishost -q --no-user-output-enabled || true
 
-printf "******************************************************************************** \n"
-printf "Delete Cloud Run Services \n"
 
-gcloud run services delete todo-fe --region=$REGION -q || true
-gcloud run services update todo-api --region=$REGION --clear-vpc-connector -q || true
-gcloud run services delete todo-api --region=$REGION -q || true
+section_open "Deleting Secrets"
+gcloud secrets delete sqlhost -q --no-user-output-enabled
+gcloud secrets delete redishost -q --no-user-output-enabled
+section_close
 
-printf "******************************************************************************** \n"
-printf "Delete SQL Server \n"
-gcloud sql instances delete $SQLNAME -q --async || true
-printf "******************************************************************************** \n"
-printf "Delete Redis Server  \n"
-gcloud redis instances delete $REDISNAME --region=$REGION -q --async || true
+section_open "Delete Cloud Run Services"
+gcloud run services delete todo-fe --region=$REGION -q
+gcloud run services update todo-api --region=$REGION --clear-vpc-connector -q
+gcloud run services delete todo-api --region=$REGION -q
+section_close
 
-printf "******************************************************************************** \n"
-printf "Delete VPN \n"
-gcloud compute networks vpc-access connectors delete vpc-connector --async --region $REGION -q || true
+section_open "Delete SQL Server"
+gcloud sql instances delete $SQLNAME -q --async
+section_close
+
+section_open "Delete Redis Server "
+gcloud redis instances delete $REDISNAME --region=$REGION -q --async
+section_close
+
+section_open "Delete VPN"
+gcloud compute networks vpc-access connectors delete vpc-connector --async \
+	--region $REGION -q
 gcloud compute addresses delete google-managed-services-vpn-connector \
 	--global  --no-user-output-enabled -q
+section_close
+
+
+section_open "Removing Artifact Registry repoistory for containers"
+gcloud artifacts repositories delete todo-app --location $REGION -q
+section_close
 
 
 
-
-printf "******************************************************************************** \n"
-printf "Delete all Permissions \n"
+section_open "Delete all Permissions"
 printf "Disabling Cloud Build Service Account to set VPN Access for Cloud Run \n"
 gcloud projects remove-iam-policy-binding $PROJECT \
   	--member serviceAccount:$SABUILD \
@@ -113,7 +84,9 @@ printf "Disabling Cloud Build Service Account consume secrets \n"
 gcloud projects remove-iam-policy-binding $PROJECT \
   	--member serviceAccount:$SABUILD \
   	--role roles/secretmanager.secretAccessor --no-user-output-enabled
-printf "Setting permissions - done \n"
+section_close
 
-printf "******************************************************************************** \n"
-printf "All Done \n"
+printf "$DIVIDER"
+printf "CONGRATS!!!!!!! \n"
+printf "Everything is all cleaned up.\n"
+printf "$DIVIDER"	

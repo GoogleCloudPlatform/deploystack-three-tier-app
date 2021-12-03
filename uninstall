@@ -6,8 +6,8 @@ print_title "TODO UNINSTALL" "This process will delete todo app including all in
 
 REDISNAME=todo-cache
 REGION=us-central1
-PROJECT=$(gcloud config get-value project | xargs)
-	
+
+get_project_id PROJECT
 
 collectParamters PROJECT "$1" "the id of the Google Cloud Project" "$PROJECT" 
 gcloud config set project ${PROJECT}
@@ -17,9 +17,9 @@ SQLNAME=$PROJECT-todo-db
 collectParamters SQLNAME "$3" "the Cloud SQL Database name" "$SQLNAME" 
 
 # All of these require the project id to be set. 
-PROJECTNUMBER=$(gcloud projects list --filter="$PROJECT" --format="value(PROJECT_NUMBER)" | xargs)	
-SABUILD=$PROJECTNUMBER@cloudbuild.gserviceaccount.com
-SACOMPUTE=$PROJECTNUMBER-compute@developer.gserviceaccount.com
+get_project_number  PROJECTNUMBER $PROJECT
+get_build_serviceaccount SABUILD $PROJECTNUMBER
+get_compute_serviceaccount SACOMPUTE $PROJECTNUMBER
 
 printf "${BCYAN}Project Details${NC} \n"
 printf "Project ID:         $PROJECT \n"
@@ -27,8 +27,6 @@ printf "Project Number:     $PROJECTNUMBER \n"
 printf "Region:             $REGION \n"
 printf "SQL Server Name:    $SQLNAME \n"
 printf "Redis Server Name:  $REDISNAME \n"
-
-
 
 section_open "Deleting Secrets"
 gcloud secrets delete sqlhost -q --no-user-output-enabled

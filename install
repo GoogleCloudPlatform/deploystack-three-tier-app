@@ -128,13 +128,37 @@ do
 done
 section_close
 
+section_open "Waiting for Redis IP to be available"
+REDIS_STATUS=$(gcloud redis instances describe $REDISNAME --region=$REGION  --format="value(state)")
+DURATION=5
+i=0
+limit=60
+while [ $REDIS_STATUS != "READY" ]
+do
+    i=$(( $i + 1 ))
+    if [ $i -eq 1 ]
+    then
+        printf "Checking if Redis is operational \n"
+    fi
+
+    if [ $i -eq $limit ]
+    then
+        printf "Timed out \n"
+        exit 1
+    fi
+    
+    REDIS_STATUS=$(gcloud redis instances describe $REDISNAME --region=$REGION  --format="value(state)")
+    printf "."
+    sleep $DURATION
+done
+section_close
 
 # Using Cloud Secret Manager to store the hostname of the SQL and Redis servers
 # There isn't a better way to inject them into this process in a way that 
 # makes the clould build yaml useful outside of this script.
 section_open "Creating Secrets"
+SQLHOST=$IP
 REDISHOST=$(gcloud redis instances describe $REDISNAME --region $REGION --format="value(host)" | xargs)
-SQLHOST=$(gcloud sql instances describe $SQLNAME --format="value(ipAddresses[0].ipAddress)" | xargs)
 gcloud secrets create sqlhost --replication-policy="automatic" --no-user-output-enabled 
 echo ${SQLHOST} | tr -d '\n' | gcloud secrets versions add sqlhost --data-file=-
 gcloud secrets create redishost --replication-policy="automatic" --no-user-output-enabled 

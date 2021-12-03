@@ -44,14 +44,6 @@ gcloud services enable secretmanager.googleapis.com
 gcloud services enable artifactregistry.googleapis.com 
 section_close
 
-
-section_open "Create VPC access connector"
-gcloud compute networks vpc-access connectors create \
-	vpc-connector --network default --region $REGION \
-	--range 10.8.0.0/28 --no-user-output-enabled  	
-section_close
-
-
 section_open "Create Networking for SQL Instance"
 gcloud compute addresses create google-managed-services-vpn-connector \
 	--global --purpose=VPC_PEERING --prefix-length=16 --network=default \
@@ -61,15 +53,23 @@ gcloud services vpc-peerings connect \
     --ranges=google-managed-services-vpn-connector \
     --network=default 
 section_close
-section_open "Create Redis Instance"
-gcloud redis instances create $REDISNAME --async --size=1 --region=$REGION --no-user-output-enabled  	
-section_close
+
 section_open "Create SQL Instance"
 gcloud beta sql instances create $SQLNAME --database-version=MYSQL_5_7 \
 	--tier=db-g1-small --region=$REGION --root-password=$ROOTPASSWORD	\
-	--no-assign-ip --network=default 
+	--no-assign-ip --network=default --async
 section_close
 
+section_open "Create Redis Instance"
+gcloud redis instances create $REDISNAME --async --size=1 --region=$REGION \
+	--no-user-output-enabled  	
+section_close
+
+section_open "Create VPC access connector"
+gcloud compute networks vpc-access connectors create \
+	vpc-connector --network default --region $REGION \
+	--range 10.8.0.0/28 --no-user-output-enabled  	
+section_close
 
 section_open "Setting permissions"
 printf "Enabling Cloud Build Service Account to deploy to Cloud Run on $PROJECT\n"
@@ -103,6 +103,32 @@ gcloud artifacts repositories create todo-app --location=$REGION \
     --repository-format=docker  
 section_close
 
+section_open "Waiting for SQL Server IP to be available"
+IP=$(gcloud beta sql instances describe $SQLNAME  --format="value(ipAddresses[0].ipAddress)")
+DURATION=5
+i=0
+limit=60
+while [ "$IP" = "" ]
+do
+    i=$(( $i + 1 ))
+    if [ $i -eq 1 ]
+    then
+        printf "Checking if IP is available \n"
+    fi
+
+    if [ $i -eq $limit ]
+    then
+        printf "Timed out \n"
+        exit 1
+    fi
+    
+    IP=$(gcloud beta sql instances describe $SQLNAME  --format="value(ipAddresses[0].ipAddress)")
+    printf "."
+    sleep $DURATION
+done
+section_close
+
+
 # Using Cloud Secret Manager to store the hostname of the SQL and Redis servers
 # There isn't a better way to inject them into this process in a way that 
 # makes the clould build yaml useful outside of this script.
@@ -115,6 +141,36 @@ gcloud secrets create redishost --replication-policy="automatic" --no-user-outpu
 echo ${REDISHOST} | tr -d '\n' | gcloud secrets versions add redishost --data-file=-
 section_close
 
+section_open "Deploying Code to Production"
+gcloud builds submit --substitutions=_REGION=$REGION .
+section_close
+
+section_open "Waiting for SQL Server to be fully operational"
+state=$(gcloud beta sql instances describe $SQLNAME  --format="value(state)")
+DURATION=5
+i=0
+limit=60
+while [ "$state" != "RUNNABLE" ]
+do
+    i=$(( $i + 1 ))
+    if [ $i -eq 1 ]
+    then
+        printf "Checking if database is up \n"
+    fi
+
+    if [ $i -eq $limit ]
+    then
+        printf "Timed out \n"
+        exit 1
+    fi
+    
+    state=$(gcloud beta sql instances describe $SQLNAME  --format="value(state)")
+    printf "."
+    sleep $DURATION
+done	
+section_close
+
+
 section_open "Populating SQL Schema and loading starting data"
 SQLSERVICEACCOUNT=$(gcloud sql instances describe $SQLNAME --format="value(serviceAccountEmailAddress)" | xargs)
 gsutil mb gs://$PROJECT-temp 
@@ -126,9 +182,7 @@ gsutil rm gs://$PROJECT-temp/schema.sql
 gsutil rb gs://$PROJECT-temp
 section_close
 
-section_open "Deploying to Production"
-gcloud builds submit --substitutions=_REGION=$REGION .
-section_close
+
 
 URL=$(gcloud run services describe todo-fe --region=$REGION --format="value(status.url)" | xargs)
 

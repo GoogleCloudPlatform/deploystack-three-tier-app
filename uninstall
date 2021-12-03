@@ -64,26 +64,30 @@ section_close
 
 
 section_open "Delete all Permissions"
-printf "Disabling Cloud Build Service Account to set VPN Access for Cloud Run \n"
+printf "Disabling Cloud Build Service Account from deploying to Cloud Run on $PROJECT\n"
+gcloud projects remove-iam-policy-binding $PROJECT \
+	--member serviceAccount:$SABUILD \
+	--role roles/run.developer --no-user-output-enabled
+printf "Disabling Cloud Build Service Account from setting VPN Access for Cloud Run \n"
 gcloud projects remove-iam-policy-binding $PROJECT \
   	--member serviceAccount:$SABUILD \
   	--role roles/vpaccess.user --no-user-output-enabled
-printf "Disabling Cloud Build Service Account to act like a Service Account? \n"
+printf "Disabling Cloud Build Service Account from acting like a Service Account? \n"
 gcloud projects remove-iam-policy-binding $PROJECT \
   	--member serviceAccount:$SABUILD \
   	--role roles/iam.serviceAccountUser --no-user-output-enabled
-printf "Disabling Cloud Build Service Account to act like Compute Service Account? \n"	  
-gcloud iam service-accounts remove-iam-policy-binding $SACOMPUTE \
-	--member=serviceAccount:$SABUILD \
-	--role roles/iam.serviceAccountUser --no-user-output-enabled 
-printf "Disabling Cloud Build Service Account to publish to Cloud Run \n"
+printf "Disabling Cloud Build Service Account from publishing to Cloud Run \n"
 gcloud projects remove-iam-policy-binding $PROJECT \
 	--member=serviceAccount:$SABUILD \
 	--role=roles/run.admin --no-user-output-enabled
-printf "Disabling Cloud Build Service Account consume secrets \n"
+printf "Disabling Cloud Build Service Account from consuming secrets \n"
 gcloud projects remove-iam-policy-binding $PROJECT \
   	--member serviceAccount:$SABUILD \
   	--role roles/secretmanager.secretAccessor --no-user-output-enabled
+printf "Disabling Cloud Build Service Account from create content in Artifact Registry \n"
+gcloud projects remove-iam-policy-binding $PROJECT \
+	--member=serviceAccount:$SABUILD \
+	--role=roles/artifactregistry.admin --no-user-output-enabled
 section_close
 
 printf "$DIVIDER"

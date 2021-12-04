@@ -1,8 +1,7 @@
 clear
 source globals
 
-print_title "TODO INSTALL" "This process will create a fully functioning to do app including all infrastructure." "15"
-
+print_title "TODO INSTALL" "This process will create a fully functioning to do app including all infrastructure." "8-12"
 REDISNAME=todo-cache
 REGION=us-central1
 ROOTPASSWORD=password123
@@ -20,16 +19,18 @@ collectParamters ROOTPASSWORD "$4" "the Cloud SQL root password" "$ROOTPASSWORD"
 
 
 # All of these require the project id to be set. 
-PROJECTNUMBER=$(gcloud projects list --filter="$PROJECT" --format="value(PROJECT_NUMBER)" | xargs)	
-SABUILD=$PROJECTNUMBER@cloudbuild.gserviceaccount.com
-SACOMPUTE=$PROJECTNUMBER-compute@developer.gserviceaccount.com
+get_project_number  PROJECTNUMBER $PROJECT
+get_build_serviceaccount SABUILD $PROJECTNUMBER
+get_compute_serviceaccount SACOMPUTE $PROJECTNUMBER
 
-printf "${LCYAN}Project Details${NC} \n"
+printf "\n"
+printf "${BCYAN}Project Details${NC} \n"
 printf "Project ID:         $PROJECT \n"
 printf "Project Number:     $PROJECTNUMBER \n"
 printf "Region:             $REGION \n"
 printf "SQL Server Name:    $SQLNAME \n"
 printf "Redis Server Name:  $REDISNAME \n"
+printf "\n"
 
 section_open "Enabling services in your GCP project"
 gcloud services enable vpcaccess.googleapis.com 
@@ -46,8 +47,7 @@ section_close
 
 section_open "Create Networking for SQL Instance"
 gcloud compute addresses create google-managed-services-vpn-connector \
-	--global --purpose=VPC_PEERING --prefix-length=16 --network=default \
-    --no-user-output-enabled 
+	--global --purpose=VPC_PEERING --prefix-length=16 --network=default 
 gcloud services vpc-peerings connect \
     --service=servicenetworking.googleapis.com \
     --ranges=google-managed-services-vpn-connector \
@@ -61,14 +61,13 @@ gcloud beta sql instances create $SQLNAME --database-version=MYSQL_5_7 \
 section_close
 
 section_open "Create Redis Instance"
-gcloud redis instances create $REDISNAME --async --size=1 --region=$REGION \
-	--no-user-output-enabled  	
+gcloud redis instances create $REDISNAME --async --size=1 --region=$REGION 	
 section_close
 
 section_open "Create VPC access connector"
 gcloud compute networks vpc-access connectors create \
 	vpc-connector --network default --region $REGION \
-	--range 10.8.0.0/28 --no-user-output-enabled  	
+	--range 10.8.0.0/28 
 section_close
 
 section_open "Setting permissions"
@@ -104,11 +103,11 @@ gcloud artifacts repositories create todo-app --location=$REGION \
 section_close
 
 section_open "Waiting for SQL Server IP to be available"
-IP=$(gcloud beta sql instances describe $SQLNAME  --format="value(ipAddresses[0].ipAddress)")
+SQLIP=$(gcloud beta sql instances describe $SQLNAME  --format="value(ipAddresses[0].ipAddress)")
 DURATION=5
 i=0
 limit=60
-while [ "$IP" = "" ]
+while [ "$SQLIP" = "" ]
 do
     i=$(( $i + 1 ))
     if [ $i -eq 1 ]
@@ -122,23 +121,23 @@ do
         exit 1
     fi
     
-    IP=$(gcloud beta sql instances describe $SQLNAME  --format="value(ipAddresses[0].ipAddress)")
+    SQLIP=$(gcloud beta sql instances describe $SQLNAME  --format="value(ipAddresses[0].ipAddress)")
     printf "."
     sleep $DURATION
 done
 section_close
 
 section_open "Waiting for Redis IP to be available"
-REDIS_STATUS=$(gcloud redis instances describe $REDISNAME --region=$REGION  --format="value(state)")
+REDISIP=$(gcloud redis instances describe $REDISNAME --region=$REGION  --format="value(host)")
 DURATION=5
 i=0
 limit=60
-while [ $REDIS_STATUS != "READY" ]
+while [ "$REDISIP" = "" ]
 do
     i=$(( $i + 1 ))
     if [ $i -eq 1 ]
     then
-        printf "Checking if Redis is operational \n"
+        printf "Checking if Redis IP is available \n"
     fi
 
     if [ $i -eq $limit ]
@@ -147,7 +146,7 @@ do
         exit 1
     fi
     
-    REDIS_STATUS=$(gcloud redis instances describe $REDISNAME --region=$REGION  --format="value(state)")
+    REDISIP=$(gcloud redis instances describe $REDISNAME --region=$REGION  --format="value(host)")
     printf "."
     sleep $DURATION
 done
@@ -157,11 +156,11 @@ section_close
 # There isn't a better way to inject them into this process in a way that 
 # makes the clould build yaml useful outside of this script.
 section_open "Creating Secrets"
-SQLHOST=$IP
-REDISHOST=$(gcloud redis instances describe $REDISNAME --region $REGION --format="value(host)" | xargs)
-gcloud secrets create sqlhost --replication-policy="automatic" --no-user-output-enabled 
+SQLHOST=$SQLIP
+REDISHOST=$REDISIP
+gcloud secrets create sqlhost --replication-policy="automatic" 
 echo ${SQLHOST} | tr -d '\n' | gcloud secrets versions add sqlhost --data-file=-
-gcloud secrets create redishost --replication-policy="automatic" --no-user-output-enabled 
+gcloud secrets create redishost --replication-policy="automatic" 
 echo ${REDISHOST} | tr -d '\n' | gcloud secrets versions add redishost --data-file=-
 section_close
 
@@ -206,9 +205,8 @@ gsutil rm gs://$PROJECT-temp/schema.sql
 gsutil rb gs://$PROJECT-temp
 section_close
 
-
-
-URL=$(gcloud run services describe todo-fe --region=$REGION --format="value(status.url)" | xargs)
+ 
+get_run_url URL "todo-fe" $REGION
 
 printf $DIVIDER
 printf "CONGRATS!!!!!!! \n"

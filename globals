@@ -81,10 +81,46 @@ function print_title(){
 	printf "$2\n"
 	if [ $3 = 1 ]
 	then
-		printf "It's going to take around 1 min \n"
+		printf "It's going to take around ${CYAN}1 min${NC} \n"
 	else
-		printf "It's going to take around $3 mins \n"
+		printf "It's going to take around ${CYAN}$3 mins${NC} \n"
 	fi
 	
 	printf "$DIVIDER"
+}
+
+function get_project_id(){
+    local  __resultvar=$1
+    VALUE=$(gcloud config get-value project | xargs)
+    eval $__resultvar="'$VALUE'"
+}
+
+function get_project_number(){
+    local  __resultvar=$1
+    local PRO=$2
+
+    VALUE=$(gcloud projects list --filter="$PRO" --format="value(PROJECT_NUMBER)" | xargs)	
+    eval $__resultvar="'$VALUE'"
+}
+
+function get_build_serviceaccount(){
+    local  __resultvar=$1
+    local NUMBER=$2
+    VALUE=$NUMBER@cloudbuild.gserviceaccount.com
+    eval $__resultvar="'$VALUE'"
+}
+
+function get_compute_serviceaccount(){
+    local  __resultvar=$1
+    local NUMBER=$2
+    VALUE=$NUMBER-compute@developer.gserviceaccount.com
+    eval $__resultvar="'$VALUE'"
+}
+
+function get_run_url(){
+    local  __resultvar=$1
+    local NAME=$2
+    local REGION=$3
+    VALUE=$(gcloud run services describe $NAME --region=$REGION --format="value(status.url)" | xargs)
+    eval $__resultvar="'$VALUE'"
 }

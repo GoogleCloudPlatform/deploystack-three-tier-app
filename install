@@ -103,53 +103,11 @@ gcloud artifacts repositories create todo-app --location=$REGION \
 section_close
 
 section_open "Waiting for SQL Server IP to be available"
-SQLIP=$(gcloud beta sql instances describe $SQLNAME  --format="value(ipAddresses[0].ipAddress)")
-DURATION=5
-i=0
-limit=60
-while [ "$SQLIP" = "" ]
-do
-    i=$(( $i + 1 ))
-    if [ $i -eq 1 ]
-    then
-        printf "Checking if IP is available \n"
-    fi
-
-    if [ $i -eq $limit ]
-    then
-        printf "Timed out \n"
-        exit 1
-    fi
-    
-    SQLIP=$(gcloud beta sql instances describe $SQLNAME  --format="value(ipAddresses[0].ipAddress)")
-    printf "."
-    sleep $DURATION
-done
+await_command SQLIP 5 60 "sqlIP" $SQLNAME
 section_close
 
 section_open "Waiting for Redis IP to be available"
-REDISIP=$(gcloud redis instances describe $REDISNAME --region=$REGION  --format="value(host)")
-DURATION=5
-i=0
-limit=60
-while [ "$REDISIP" = "" ]
-do
-    i=$(( $i + 1 ))
-    if [ $i -eq 1 ]
-    then
-        printf "Checking if Redis IP is available \n"
-    fi
-
-    if [ $i -eq $limit ]
-    then
-        printf "Timed out \n"
-        exit 1
-    fi
-    
-    REDISIP=$(gcloud redis instances describe $REDISNAME --region=$REGION  --format="value(host)")
-    printf "."
-    sleep $DURATION
-done
+await_command REDISIP 5 60 "redisIP" $REDISNAME $REGION
 section_close
 
 # Using Cloud Secret Manager to store the hostname of the SQL and Redis servers
@@ -169,28 +127,7 @@ gcloud builds submit --substitutions=_REGION=$REGION .
 section_close
 
 section_open "Waiting for SQL Server to be fully operational"
-state=$(gcloud beta sql instances describe $SQLNAME  --format="value(state)")
-DURATION=5
-i=0
-limit=60
-while [ "$state" != "RUNNABLE" ]
-do
-    i=$(( $i + 1 ))
-    if [ $i -eq 1 ]
-    then
-        printf "Checking if database is up \n"
-    fi
-
-    if [ $i -eq $limit ]
-    then
-        printf "Timed out \n"
-        exit 1
-    fi
-    
-    state=$(gcloud beta sql instances describe $SQLNAME  --format="value(state)")
-    printf "."
-    sleep $DURATION
-done	
+await_command state 5 60 "sqlREADY" $SQLNAME
 section_close
 
 

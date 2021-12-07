@@ -1,0 +1,105 @@
+
+# Copyright 2021 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+source globals
+get_project_id PROJECT
+REGION=us-central1
+REDISNAME=todo-cache
+randomString SQLSEED
+
+SQLNAME=$PROJECT-db-$SQLSEED
+PASSWORD=password123
+get_project_number  PROJECTNUMBER $PROJECT
+
+
+printf "\n"
+printf "${BCYAN}Project Details${NC} \n"
+printf "Project ID:         $PROJECT \n"
+printf "Project Number:     $PROJECTNUMBER \n"
+printf "Region:             $REGION \n"
+printf "SQL Server Name:    $SQLNAME \n"
+printf "Redis Server Name:  $REDISNAME \n"
+printf "\n"
+
+./install $PROJECT $REGION $SQLNAME $PASSWORD
+
+section_open "Testing Secrets"
+evalTest 'gcloud secrets describe sqlhost --format="value(name)"' "projects/$PROJECTNUMBER/secrets/sqlhost"
+evalTest 'gcloud secrets describe redishost --format="value(name)"' "projects/$PROJECTNUMBER/secrets/redishost"
+section_close
+
+section_open "Test Cloud Run Services"
+evalTest 'gcloud run services describe todo-fe --region=$REGION --format="value(name)"' "todo-fe"
+evalTest 'gcloud run services describe todo-api --region=$REGION --format="value(name)"' "todo-api"
+section_close
+
+section_open "Test SQL Server"
+evalTest 'gcloud sql instances describe $SQLNAME --format="value(name)"' $SQLNAME
+section_close
+
+section_open "Test Redis Server "
+evalTest 'gcloud redis instances describe $REDISNAME --region=$REGION --format="value(name)"' "projects/$PROJECT/locations/$REGION/instances/$REDISNAME"
+section_close
+
+section_open "Testing VPN"
+evalTest 'gcloud compute networks vpc-access connectors describe vpc-connector --region $REGION --format="value(name)"' "projects/$PROJECT/locations/$REGION/connectors/vpc-connector"
+evalTest 'gcloud compute addresses describe google-managed-services-vpn-connector --global --format="value(name)"' "google-managed-services-vpn-connector"
+section_close
+
+# This is a bug. Everytime this command runs "Encryption: Google Managed Key gets thrown in STDERR"
+section_open "Testing Artifact Registry repoistory for containers"
+evalTest 'gcloud artifacts repositories describe todo-app --location $REGION --format="value(name)"' "EXPECTERROR"
+section_close
+
+
+./uninstall $PROJECT $REGION $SQLNAME 
+
+section_open "Waiting for Redis Server to be deleted"
+await_command state 5 60 "redisGone" $REDISNAME $REGION
+section_close
+
+
+section_open "Testing Secrets"
+evalTest 'gcloud secrets describe sqlhost --format="value(name)"' "EXPECTERROR"
+evalTest 'gcloud secrets describe redishost --format="value(name)"' "EXPECTERROR"
+section_close
+
+section_open "Test Cloud Run Services"
+evalTest 'gcloud run services describe todo-fe --region=$REGION --format="value(name)"' "EXPECTERROR"
+evalTest 'gcloud run services describe todo-api --region=$REGION --format="value(name)"' "EXPECTERROR"
+section_close
+
+section_open "Test SQL Server"
+evalTest 'gcloud sql instances describe $SQLNAME --format="value(name)"' "EXPECTERROR"
+section_close
+
+section_open "Test Redis Server "
+evalTest 'gcloud redis instances describe $REDISNAME --region=$REGION --format="value(name)"' "EXPECTERROR"
+section_close
+
+section_open "Testing VPN"
+evalTest 'gcloud compute networks vpc-access connectors describe vpc-connector --region $REGION --format="value(name)"' "EXPECTERROR"
+evalTest 'gcloud compute addresses describe google-managed-services-vpn-connector --global --format="value(name)"' "EXPECTERROR"
+section_close
+
+section_open "Testing Artifact Registry repoistory for containers"
+evalTest 'gcloud artifacts repositories describe todo-app --location $REGION --format="value(name)"' "EXPECTERROR"
+section_close
+
+
+printf "$DIVIDER"
+printf "CONGRATS!!!!!!! \n"
+printf "You got the end the of your test with everything working. \n"
+printf "$DIVIDER"

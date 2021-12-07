@@ -62,6 +62,46 @@ function collectParamters(){
     eval $__resultvar="'$VALUE'"
 }
 
+# This will handle repetitive collection of data for the contact info
+function collectAddressInfo(){
+    local  __resultvar=$1
+    local LABEL=$2
+    local VALUE="$3"
+    local NOTE=$4
+
+    printf "Enter your $LABEL"
+
+    if  [[ "$VALUE" != "" ]]
+    then
+        printf " [leave blank for ${CYAN}'${VALUE}'${NC}]"
+    fi
+    
+    printf "\n"
+
+    if [[ $NOTE ]]
+    then
+        printf "${ONCYAN}NOTE:${CYAN} $NOTE${NC}\n"
+    fi
+
+    printf ":"
+
+
+    read USER_VALUE
+
+    if [[ $USER_VALUE ]]
+    then
+        VALUE="$USER_VALUE"
+    fi
+
+    if [[ !($VALUE) ]]
+    then
+        printf "\n${BRED}Sorry, $LABEL is mandatory.${NC}\n"
+        exit 1;
+    fi
+
+    eval $__resultvar="'$VALUE'"
+}
+
 function section_open(){
       section_description=$1
       printf "$DIVIDER"
@@ -122,5 +162,195 @@ function get_run_url(){
     local NAME=$2
     local REGION=$3
     VALUE=$(gcloud run services describe $NAME --region=$REGION --format="value(status.url)" | xargs)
+    eval $__resultvar="'$VALUE'"
+}
+
+
+function await_command () {
+    local  __resultvar=$1
+    local DURATION=$2
+    local limit=$3
+    local OP=$4
+    local NAME=$5
+    local REGION=$6
+    local DOMAIN=$5
+    local IP=$6
+    
+
+
+    case $OP in
+        "sqlIP")
+            COMMAND="gcloud beta sql instances describe"
+            FORMAT="--format='value(ipAddresses[0].ipAddress)'"
+            MESSAGE="Checking if IP is available"
+            AWAITING="!BLANK"
+            ERROREXPECTED=false
+        ;;
+
+        "sqlREADY")
+            COMMAND="gcloud beta sql instances describe"
+            FORMAT="--format='value(state)'"
+            MESSAGE="Checking if database is up"
+            AWAITING="RUNNABLE"
+            ERROREXPECTED=false
+        ;;
+
+        "redisIP")
+            COMMAND="gcloud redis instances describe"
+            FORMAT="--region=$REGION --format='value(host)'"
+            MESSAGE="Checking if IP is available"
+            AWAITING="!BLANK"
+            ERROREXPECTED=false
+        ;;
+
+        "redisGone")
+            COMMAND="gcloud redis instances describe"
+            FORMAT="--region=$REGION --format='value(host)'"
+            MESSAGE="Checking if Redis server is gone"
+            AWAITING=""
+            ERROREXPECTED=true
+        ;;
+
+        "domainREADY")
+            COMMAND="gcloud beta domains registrations describe"
+            FORMAT="--format='value(state)'"
+            MESSAGE="Checking if domain is active "
+            AWAITING="ACTIVE"
+            ERROREXPECTED=false
+        ;;
+
+         "url200")
+            COMMAND="curl --write-out '%{http_code}' --resolve $DOMAIN:80:$IP --silent --output /dev/null http://$DOMAIN"
+            FORMAT=""
+            MESSAGE="Checking if url is returning STATUS OK "
+            AWAITING=200
+            NAME=""
+            ERROREXPECTED=false
+        ;;
+
+        *)
+            echo "Unknown Operation Type"
+            exit 1
+        ;;
+    esac
+
+    ERROR=false
+    VALUE=$(eval $COMMAND $NAME $FORMAT) || ERROR=true
+
+    if [ "$ERROR" = true ]
+    then
+        if [ "$ERROREXPECTED" == true ]
+        then 
+            printf "\n"
+            eval $__resultvar=""
+            return 1
+        fi
+        printf "Command to poll errored. Exiting\n"
+        return 1
+    fi
+
+    i=0
+    if [ "$AWAITING" = "!BLANK" ]
+    then
+        while [ "$VALUE" = "" ]
+        do
+
+            i=$(( $i + 1 ))
+            if [ $i -eq 1 ]
+            then
+                printf $MESSAGE
+            fi
+
+            if [ $i -eq $limit ]
+            then
+                printf "Timed out \n"
+                return 1
+            fi
+
+            VALUE=$(eval $COMMAND $NAME $FORMAT) || ERROR=true
+            if [ "$ERROR" = true ]
+            then
+                if [ "$ERROREXPECTED" == true ]
+                then 
+                    printf "\n"
+                    eval $__resultvar="''"
+                    return 1
+                fi
+                printf "Command to poll errored. Exiting\n"
+                return 1
+            fi
+            printf "."
+            sleep $DURATION
+        done
+    else
+        while [ "$VALUE" != "$AWAITING" ]
+        do
+            i=$(( $i + 1 ))
+            if [ $i -eq 1 ]
+            then
+                printf $MESSAGE
+            fi
+
+            if [ $i -eq $limit ]
+            then
+                printf "Timed out \n"
+                return 1
+            fi
+
+            VALUE=$(eval $COMMAND $NAME $FORMAT) || ERROR=true
+
+            if [ "$ERROR" = true ]
+            then
+                if [ "$ERROREXPECTED" == true ]
+                then 
+                    printf "\n"
+                    eval $__resultvar="''"
+                    return 1
+                fi
+                printf "Command to poll errored. Exiting\n"
+                return 1
+            fi
+            printf "."
+            sleep $DURATION
+        done
+    fi
+    printf "\n"
+    eval $__resultvar="'$VALUE'"
+}
+
+
+function evalTest(){
+    local command=$1
+    local expected=$2
+
+    local ERR=""
+    got=$(eval $command 2> errFile)
+    ERR=$(<errFile)
+
+    if [ ${#ERR} -gt 0 ]
+    then
+        if [ "$expected" = "EXPECTERROR" ]
+        then
+            printf "Expected Error thrown \n"
+            return
+        fi
+
+         printf "Halting - error: '$ERR'  \n"
+         exit 1
+    fi
+
+    if [ "$got" != "$expected" ]
+    then
+        printf "Halting: '$got'  \n"
+        exit 1
+    fi
+
+    printf "$expected is ok\n"
+}
+
+
+function randomString(){
+    local  __resultvar=$1
+    local VALUE=$(LC_ALL=C tr -dc 'a-z0-9' </dev/urandom | head -c 13 ; echo)
     eval $__resultvar="'$VALUE'"
 }

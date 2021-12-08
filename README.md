@@ -12,7 +12,7 @@ You can install this application using the `Open in Google Cloud Shell` button
 below. 
 
 <a
-        href="https://ssh.cloud.google.com/cloudshell/editor?cloudshell_git_repo=https%3A%2F%2Fgithub.com%2FGoogleCloudPlatform%2Fappinabox_todo&cloudshell_print=install.txt&cloudshell_open_in_editor=README.md">
+        href="https://ssh.cloud.google.com/cloudshell/editor?cloudshell_git_repo=https%3A%2F%2Fgithub.com%2FGoogleCloudPlatform%2Fappinabox_todo&cloudshell_print=install.txt&cloudshell_open_in_editor=README.md&cloudshell_workspace=.">
         <img alt="Open in Cloud Shell" src="https://gstatic.com/cloudssh/images/open-btn.svg"></a>
 
 Once this opens up, you can install by: 

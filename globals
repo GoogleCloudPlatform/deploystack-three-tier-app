@@ -23,7 +23,8 @@ RED='\033[0;31m'
 BRED='\033[1;31m'
 ONRED="\033[41m"  
 NC='\033[0m' # No Color
-DIVIDER="*****************************************************************************************************\n"
+DIVIDER=$(printf %"$(tput cols)"s |tr " " "*") 
+DIVIDER+="\n"
 
 function collectParamters(){
     local  __resultvar=$1

@@ -17,7 +17,7 @@ BLACK='\033[0;30m'
 WHITE='\033[1;37m'
 CYAN='\033[0;36m'
 BCYAN='\033[1;36m'
-ONCYAN="\033[46m"
+DCYAN='\033[2;36m'
 UCYAN='\033[4;36m' 
 RED='\033[0;31m'
 BRED='\033[1;31m'
@@ -102,6 +102,178 @@ function collectAddressInfo(){
 
     eval $__resultvar="'$VALUE'"
 }
+
+function createProject(){
+    local  __resultvar=$1
+    local ANSWER
+    local PROPOSED_PROJECT_ID
+    local BA
+    local SUCCESS="false"
+    
+    section_open "Creating the project"
+    while [ "$SUCCESS" == "false" ]
+    do
+        SUCCESS="true"
+        printf "${BCYAN}Please enter a new project name to create: ${NC}\n"
+        read PROPOSED_PROJECT_ID
+        gcloud projects create $PROPOSED_PROJECT_ID --set-as-default  || SUCCESS="false"
+
+        if [ "$SUCCESS" == "false" ]
+        then
+            printf "${ONRED}Project name could not be created, please choose another${NC}\n"
+            continue
+        fi
+    done
+    gcloud config set project ${PROPOSED_PROJECT_ID}
+    section_close
+
+   BA_LIST_GCLOUD=$(gcloud beta billing accounts list --format="value(ACCOUNT_ID)" | xargs)
+   IFS=$'\n' read -rd '' -a BA_LIST <<<"$BA_LIST_GCLOUD"
+
+   if [ ${#BA_LIST[@]} == 1 ]
+   then
+      BA=$BA_LIST_GCLOUD
+   else
+      printf "${BCYAN}Choose Billing Account from this list${NC}: "
+      gcloud beta billing accounts list
+
+      select opt in "${BA_LIST[@]}"
+      do
+         BA=$opt
+         break
+      done
+   fi
+   
+   section_open "Activating Billing for the project"
+      gcloud beta billing projects link $PROPOSED_PROJECT_ID --billing-account=$BA 
+   section_close
+   eval $__resultvar="'$PROPOSED_PROJECT_ID'"
+}
+
+
+function selectProject(){
+   local  __resultvar=$1
+   local PROJ
+
+   PROJECT_LIST_GCLOUD=$(gcloud projects list --format="value(PROJECT_ID)")
+   IFS=$'\n' read -rd '' -a PROJECTS <<<"$PROJECT_LIST_GCLOUD"
+   PROJECTS=($(for l in ${PROJECTS[@]}; do echo $l; done | sort))
+   PROJECTS=("CREATE NEW PROJECT" ${PROJECTS[@]})
+
+   printf "${BCYAN}Choose a project to use for this application. ${NC}\n"
+   printf "${ONCYAN}NOTE:${CYAN}: This app will make changes to the project. ${NC}\n"
+   printf "While those changes are reverseable, it would be better to put it in a fresh new project. \n"
+
+   select opt in "${PROJECTS[@]}"
+   do
+      if [[ "$opt" == "CREATE NEW PROJECT" ]]
+      then
+         createProject PROJ
+      else
+         PROJ=$opt
+         gcloud config set project ${PROJ}
+      fi
+      break
+   done
+
+   eval $__resultvar="'$PROJ'"
+}
+
+
+function handleProject {
+   local  __resultvar=$1
+   local ARG=$2
+   local VALUE
+
+   if [[ $ARG ]]
+   then
+      VALUE=$ARG
+   else
+      selectProject VALUE
+   fi 
+
+   eval $__resultvar="'$VALUE'"
+}
+
+
+function computeRegionPicker(){
+   local  __resultvar=$1
+   local ARG=$2
+   local REG
+   local REGIONS
+
+   if [[ $ARG ]]
+   then
+      REG=$ARG
+      eval $__resultvar="'$REG'"
+      return
+   fi 
+
+   printf "Poling for regions...\n"
+
+   REGION_LIST_GCLOUD=$(gcloud compute regions list --format="value(NAME)")
+   IFS=$'\n' read -rd '' -a REGIONS <<<"$REGION_LIST_GCLOUD"
+   REGIONS=($(for l in ${REGIONS[@]}; do echo $l; done | sort))
+
+   printf "${BCYAN}Choose a valid region to use for this application. ${NC}\n"
+
+   while [ "$REG" == "" ]
+   do 
+      select opt in "${REGIONS[@]}"
+      do
+         REG=$opt
+         break
+      done
+   
+       if [ "$REG" == "" ]
+        then
+            printf "${ONRED}REGION choice not valid, please choose another${NC}\n"
+            continue
+        fi
+   done
+   eval $__resultvar="'$REG'"
+
+}
+
+function computeZonePicker(){
+   local __resultvar=$1
+   local ARG=$2
+   local REG=$3
+   local Z
+   local ZONES
+
+   if [[ $ARG ]]
+   then
+      Z=$ARG
+      eval $__resultvar="'$Z'"
+      return
+   fi 
+   printf "Poling for zones...\n"
+   ZONES_LIST_GCLOUD=$(gcloud compute zones list --filter=region=$REG --format="value(NAME)")
+   IFS=$'\n' read -rd '' -a ZONES <<<"$ZONES_LIST_GCLOUD"
+   ZONES=($(for l in ${ZONES[@]}; do echo $l; done | sort))
+
+   printf "${BCYAN}Choose a valid zone to use for this application. ${NC}\n"
+
+   while [ "$Z" == "" ]
+   do
+      select opt in "${ZONES[@]}"
+      do
+         Z=$opt
+         break
+      done
+   
+       if [ "$Z" == "" ]
+        then
+            printf "${ONRED}ZONE choice not valid, please choose another${NC}\n"
+            continue
+        fi
+   done
+
+   eval $__resultvar="'$Z'"
+
+}
+
 
 function section_open(){
       section_description=$1

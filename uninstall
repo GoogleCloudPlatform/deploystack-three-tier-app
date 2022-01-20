@@ -1,17 +1,25 @@
 clear
 source globals
 
-print_title "TODO UNINSTALL" "This process will delete todo app including all infrastructure." "1"
+DESC="This process will delete the following:
+	* Frontend - Cloud Run Service 
+	* Middleware - Cloud Run Service
+	* Backend - Cloud Sql MySQL instance 
+	* Cache - Cloud Memorystore
+	* Secrets - Cloud Secret Manager
+
+All of these power the 3 tier TODO app that we spun up in install.     
+"
+
+print_title "TODO INSTALL" "$DESC" "1"
+
 
 
 REDISNAME=todo-cache
 REGION=us-central1
 
-get_project_id PROJECT
-
-collectParamters PROJECT "$1" "the id of the Google Cloud Project" "$PROJECT" 
-gcloud config set project ${PROJECT}
-collectParamters REGION "$2" "the Google Cloud Region" "$REGION" 
+handleProject PROJECT "$1"
+computeRegionPicker REGION "$2" "run"
 
 SQLNAME=$PROJECT-todo-db
 collectParamters SQLNAME "$3" "the Cloud SQL Database name" "$SQLNAME" 
@@ -21,69 +29,70 @@ get_project_number  PROJECTNUMBER $PROJECT
 get_build_serviceaccount SABUILD $PROJECTNUMBER
 get_compute_serviceaccount SACOMPUTE $PROJECTNUMBER
 
-printf "${BCYAN}Project Details${NC} \n"
-printf "Project ID:         $PROJECT \n"
-printf "Project Number:     $PROJECTNUMBER \n"
-printf "Region:             $REGION \n"
-printf "SQL Server Name:    $SQLNAME \n"
-printf "Redis Server Name:  $REDISNAME \n"
+projectDetails "
+Project ID:,$PROJECT
+Project Number:,$PROJECTNUMBER
+Region:,$REGION
+SQL Server Name:,$SQLNAME 
+Redis Server Name:,$REDISNAME
+"
 
 section_open "Deleting Secrets"
-gcloud secrets delete sqlhost -q --no-user-output-enabled
-gcloud secrets delete redishost -q --no-user-output-enabled
+	gcloud secrets delete sqlhost -q --no-user-output-enabled
+	gcloud secrets delete redishost -q --no-user-output-enabled
 section_close
 
 section_open "Delete Cloud Run Services"
-gcloud run services delete todo-fe --region=$REGION -q
-gcloud run services update todo-api --region=$REGION --clear-vpc-connector -q
-gcloud run services delete todo-api --region=$REGION -q
+	gcloud run services delete todo-fe --region=$REGION -q
+	gcloud run services update todo-api --region=$REGION --clear-vpc-connector -q
+	gcloud run services delete todo-api --region=$REGION -q
 section_close
 
 section_open "Delete SQL Server"
-gcloud sql instances delete $SQLNAME -q --async
+	gcloud sql instances delete $SQLNAME -q --async
 section_close
 
 section_open "Delete Redis Server "
-gcloud redis instances delete $REDISNAME --region=$REGION -q --async
+	gcloud redis instances delete $REDISNAME --region=$REGION -q --async
 section_close
 
 section_open "Delete VPN"
-gcloud compute networks vpc-access connectors delete vpc-connector --async \
+	gcloud compute networks vpc-access connectors delete vpc-connector --async \
 	--region $REGION -q
-gcloud compute addresses delete google-managed-services-vpn-connector \
+	gcloud compute addresses delete google-managed-services-vpn-connector \
 	--global  --no-user-output-enabled -q
 section_close
 
 
 section_open "Removing Artifact Registry repoistory for containers"
-gcloud artifacts repositories delete todo-app --location $REGION -q
+	gcloud artifacts repositories delete todo-app --location $REGION -q
 section_close
 
 
 
 section_open "Delete all Permissions"
 printf "Disabling Cloud Build Service Account from deploying to Cloud Run on $PROJECT\n"
-gcloud projects remove-iam-policy-binding $PROJECT \
+	gcloud projects remove-iam-policy-binding $PROJECT \
 	--member serviceAccount:$SABUILD \
 	--role roles/run.developer --no-user-output-enabled
 printf "Disabling Cloud Build Service Account from setting VPN Access for Cloud Run \n"
-gcloud projects remove-iam-policy-binding $PROJECT \
+	gcloud projects remove-iam-policy-binding $PROJECT \
   	--member serviceAccount:$SABUILD \
   	--role roles/vpaccess.user --no-user-output-enabled
 printf "Disabling Cloud Build Service Account from acting like a Service Account? \n"
-gcloud projects remove-iam-policy-binding $PROJECT \
+	gcloud projects remove-iam-policy-binding $PROJECT \
   	--member serviceAccount:$SABUILD \
   	--role roles/iam.serviceAccountUser --no-user-output-enabled
 printf "Disabling Cloud Build Service Account from publishing to Cloud Run \n"
-gcloud projects remove-iam-policy-binding $PROJECT \
+	gcloud projects remove-iam-policy-binding $PROJECT \
 	--member=serviceAccount:$SABUILD \
 	--role=roles/run.admin --no-user-output-enabled
 printf "Disabling Cloud Build Service Account from consuming secrets \n"
-gcloud projects remove-iam-policy-binding $PROJECT \
+	gcloud projects remove-iam-policy-binding $PROJECT \
   	--member serviceAccount:$SABUILD \
   	--role roles/secretmanager.secretAccessor --no-user-output-enabled
 printf "Disabling Cloud Build Service Account from create content in Artifact Registry \n"
-gcloud projects remove-iam-policy-binding $PROJECT \
+	gcloud projects remove-iam-policy-binding $PROJECT \
 	--member=serviceAccount:$SABUILD \
 	--role=roles/artifactregistry.admin --no-user-output-enabled
 section_close

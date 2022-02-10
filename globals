@@ -32,6 +32,7 @@ NC='\033[0m' # No Color
 DIVIDER=$(printf %"$(tput cols)"s | tr " " "*")
 DIVIDER+="\n"
 
+
 # INPUT COLLECTION
 function collectParamters() {
     local __resultvar=$1
@@ -206,8 +207,13 @@ function selectWithDefault() {
     done
 
     # Output the selected item, if any.
-    [[ -n $index ]] && printf %s "${@:index:1}"
-
+    if [[ -n $index ]]; then
+        if [[ $index == $default ]]; then
+            printf %s $index
+        else
+            printf %s "${@:index:1}"
+        fi
+    fi
 }
 
 # GCP PROJECT MANAGEMENT
@@ -221,7 +227,12 @@ function handleProject {
     else
         selectProject VALUE
     fi
-
+    
+    if [[ -z "${OUTPUTFILE}" ]]
+    then
+        printf "gcloud config set project ${VALUE}\n" >> $OUTPUTFILE
+    fi
+    
     eval $__resultvar="'$VALUE'"
 }
 
@@ -419,6 +430,11 @@ function get_run_url() {
 
 # DISPLAY HELPERS
 function section_open() {
+    if [[ -z "${OUTPUTFILE}" ]]
+    then
+        printf "#" >> $OUTPUTFILE
+        echo $1 >> $OUTPUTFILE
+    fi
     section_description=$1
     printf "$DIVIDER"
     printf "${CYAN}$section_description${NC} \n"
@@ -426,12 +442,23 @@ function section_open() {
 }
 
 function section_close() {
+    if [[ -z "${OUTPUTFILE}" ]]
+    then
+        printf "\n" >> $OUTPUTFILE
+    fi
     printf "$DIVIDER"
     printf "${CYAN}$section_description ${BCYAN}- done${NC}\n"
     printf "\n\n"
 }
 
 function print_title() {
+    if [[ -z "${OUTPUTFILE}" ]]
+    then
+        printf "#!/bin/bash\n" > $OUTPUTFILE
+        printf "set -v\n" >> $OUTPUTFILE
+        printf "# $1\n" >> $OUTPUTFILE
+    fi
+    
     printf "$DIVIDER"
     printf "${BCYAN}$1${NC} \n"
     printf "$2\n"
@@ -638,4 +665,39 @@ function randomString() {
         echo
     )
     eval $__resultvar="'$VALUE'"
+}
+
+function prGcloud(){
+    local prefix=$(which gcloud)
+    local tmp=${1/gcloud/$prefix}
+
+    local cmd="${tmp/\/\\}"
+    local orig="${1/\/\\}"
+    cmd=$(echo "${cmd//[$'\t\r\n']}")
+
+    IFS=$'\n' read -rd '' -a cmdlines <<<"$orig"
+
+    count=0
+    for line in "${cmdlines[@]}"
+    do
+    :
+    if [[ $count -lt   ${#cmdlines[@]}-1 ]]
+    then
+        printf "${BCYAN}$line${NC} \\ \n"
+        if [[ -z "${OUTPUTFILE}" ]]
+        then
+           echo "$line \\" >> $OUTPUTFILE
+        fi
+        
+    else
+        printf "${BCYAN}$line${NC} \n"
+        if [[ -z "${OUTPUTFILE}" ]]
+        then
+            echo "$line " >> $OUTPUTFILE
+        fi
+    fi
+    count=$[count + 1]
+    done
+    
+    eval "${cmd}"
 }

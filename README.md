@@ -22,7 +22,7 @@ Once this opens up, you can install by:
 To remove all billing components from the project
 1. Typing `./uninstall`
 
-## Developement
+## Development
 There is a development setup for this application that uses Docker to run 
 everything you need to developer and test it out locally. 
 

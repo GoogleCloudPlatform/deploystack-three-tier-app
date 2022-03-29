@@ -4,6 +4,7 @@ PORT_DB=3306
 PORT_API=9000
 
 dev: db redis api fe
+clean: cleandb cleanredis cleanapi cleanfe 
 
 fe: cleanfe
 	cd frontend && docker build -t todo-html .

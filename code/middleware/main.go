@@ -47,6 +47,7 @@ func main() {
 	defer storage.sqlstorage.Close()
 
 	router := mux.NewRouter().StrictSlash(true)
+	router.HandleFunc("/healthz", healthHandler).Methods(http.MethodGet)
 	router.HandleFunc("/api/v1/todo", listHandler).Methods(http.MethodGet, http.MethodOptions)
 	router.HandleFunc("/api/v1/todo", createHandler).Methods(http.MethodPost)
 	router.HandleFunc("/api/v1/todo/{id}", readHandler).Methods(http.MethodGet)
@@ -79,6 +80,12 @@ func (c *CORSRouterDecorator) ServeHTTP(rw http.ResponseWriter, req *http.Reques
 	}
 
 	c.R.ServeHTTP(rw, req)
+}
+
+func healthHandler(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("ok"))
+	return
 }
 
 func listHandler(w http.ResponseWriter, r *http.Request) {

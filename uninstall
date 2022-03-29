@@ -1,5 +1,6 @@
 clear
 source globals
+OUTPUTFILE="uninstall.sh"
 
 DESC="This process will delete the following:
 	* Frontend - Cloud Run Service 

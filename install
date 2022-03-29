@@ -1,5 +1,6 @@
 clear
 source globals
+OUTPUTFILE="install.sh"
 
 DESC="This process will create the following:
 	* Frontend - Cloud Run Service 

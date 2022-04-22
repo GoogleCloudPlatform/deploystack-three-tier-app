@@ -58,7 +58,7 @@ section_open "Delete Redis Server "
 section_close
 
 section_open "Delete VPN"
-	gcloud compute networks vpc-access connectors delete vpc-connector --async \
+	gcloud compute networks vpc-access connectors delete vpc-connector \
 	--region $REGION -q
 	gcloud compute addresses delete google-managed-services-vpn-connector \
 	--global  --no-user-output-enabled -q

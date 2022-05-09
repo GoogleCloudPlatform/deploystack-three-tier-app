@@ -1,0 +1,21 @@
+case $1 in
+
+  "install")
+    go mod init exec
+    go mod tidy
+    go run main.go
+    terraform init
+    terraform apply -auto-approve -var-file=terraform.tfvars
+    ;;
+
+  "uninstall")
+    terraform destroy -auto-approve -var-file=terraform.tfvars
+    ;;
+
+  *)
+    echo "DEPLOYSTACK"
+    echo "type './deploystack install' to install this deploystack application" 
+    echo "or"
+    echo "type './deploystack uninstall' to uninstall this deploystack application" 
+    ;;
+esac

@@ -14,6 +14,10 @@ variable "zone" {
   type = string
 }
 
+variable "basename" {
+  type = string
+}
+
 locals {
   sabuild        = "${var.project_number}@cloudbuild.gserviceaccount.com"
   sacompute      = "${var.project_number}-compute@developer.gserviceaccount.com"
@@ -120,7 +124,7 @@ resource "random_id" "id" {
 # TODO: Make name section less random nonsesne and more in line with the project
 # Handle Database
 resource "google_sql_database_instance" "todo_database" {
-  name="todo-db-${random_id.id.hex}"
+  name="${var.basename}-db-${random_id.id.hex}"
   database_version = "MYSQL_5_7"
   region           = var.region
   project          = var.project_id
@@ -153,7 +157,7 @@ resource "google_redis_instance" "todo_cache" {
   connect_mode            = "DIRECT_PEERING"
   location_id             = var.zone
   memory_size_gb          = 1
-  name                    = "todo-cache"
+  name                    = "${var.basename}-cache"
   project                 = var.project_id
   redis_version           = "REDIS_6_X"
   region                  = var.region
@@ -169,7 +173,7 @@ resource "google_artifact_registry_repository" "todo_app" {
   format        = "DOCKER"
   location      = var.region
   project       = var.project_id
-  repository_id = "todo-app"
+  repository_id = "${var.basename}-app"
   depends_on    = [google_project_service.all]
 }
 
@@ -210,7 +214,7 @@ resource "google_secret_manager_secret_version" "sqlhost" {
 resource "null_resource" "cloudbuild_api" {
   provisioner "local-exec" {
     working_dir = "${path.module}/code/middleware"
-    command     = "gcloud builds submit . --substitutions=_REGION=${var.region} "
+    command     = "gcloud builds submit . --substitutions=_REGION=${var.region},_BASENAME=${var.basename}"
   }
 
   depends_on = [
@@ -222,14 +226,14 @@ resource "null_resource" "cloudbuild_api" {
 }
 
 resource "google_cloud_run_service" "api" {
-  name     = "todo-api"
+  name     = "${var.basename}-api"
   location = var.region
   project  = var.project_id
 
   template {
     spec {
       containers {
-        image = "${var.region}-docker.pkg.dev/${var.project_id}/todo-app/api"
+        image = "${var.region}-docker.pkg.dev/${var.project_id}/${var.basename}-app/api"
         env {
           name = "REDISHOST"
           value_from {
@@ -296,7 +300,7 @@ resource "google_cloud_run_service_iam_policy" "noauth_api" {
 resource "null_resource" "cloudbuild_fe" {
   provisioner "local-exec" {
     working_dir = "${path.module}/code/frontend"
-    command     = "gcloud builds submit . --substitutions=_REGION=${var.region}"
+    command     = "gcloud builds submit . --substitutions=_REGION=${var.region},_BASENAME=${var.basename}"
   }
 
   depends_on = [
@@ -306,14 +310,14 @@ resource "null_resource" "cloudbuild_fe" {
 }
 
 resource "google_cloud_run_service" "fe" {
-  name     = "todo-fe"
+  name     = "${var.basename}-fe"
   location = var.region
   project  = var.project_id
 
   template {
     spec {
       containers {
-        image = "${var.region}-docker.pkg.dev/${var.project_id}/todo-app/fe"
+        image = "${var.region}-docker.pkg.dev/${var.project_id}/${var.basename}-app/fe"
         ports {
           container_port = 80
         }

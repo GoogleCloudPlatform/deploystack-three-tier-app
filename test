@@ -84,13 +84,13 @@ get_project_id PROJECT
 gcloud services enable cloudresourcemanager.googleapis.com --project=$PROJECT
 get_project_number PROJECT_NUMBER $PROJECT
 REGION=us-central1
+ZONE=us-central1-a
 BASENAME=todo
-SIZE=3
 
 gcloud config set project ${PROJECT}
 
 terraform init
-terraform apply -auto-approve -var project_id="${PROJECT}" -var project_number="${PROJECT_NUMBER}" -var region="${REGION}" -var basename="${BASENAME}" 
+terraform apply -auto-approve -var project_id="${PROJECT}" -var project_number="${PROJECT_NUMBER}" -var region="${REGION}" -var basename="${BASENAME}" -var zone="${ZONE}"
 
 
 section_open "Testing Secrets"
@@ -121,7 +121,7 @@ section_open "Testing Artifact Registry repoistory for containers"
     evalTest 'gcloud artifacts repositories describe todo-app --location $REGION --format="value(name)"' "EXPECTERROR"
 section_close
 
-terraform destroy -auto-approve -var project_id="${BASENAME}" -var project_number="${PROJECT_NUMBER}" -var region="${REGION}" -var basename="${BASENAME}" 
+terraform destroy -auto-approve -var project_id="${BASENAME}" -var project_number="${PROJECT_NUMBER}" -var region="${REGION}" -var basename="${BASENAME}" -var zone="${ZONE}"
 ./uninstall $PROJECT $REGION $SQLNAME 
 
 # section_open "Waiting for Redis Server to be deleted"

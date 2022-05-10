@@ -14,29 +14,29 @@
 
 steps:
    - name: 'gcr.io/cloud-builders/docker'
-     args: [ 'build', '-t', '$_REGION-docker.pkg.dev/$PROJECT_ID/todo-app/api', '.' ]
+     args: [ 'build', '-t', '$_REGION-docker.pkg.dev/$PROJECT_ID/$_BASENAME-app/api', '.' ]
      dir: "code/middleware"
    - name: 'gcr.io/cloud-builders/docker'
-     args: ['push', '$_REGION-docker.pkg.dev/$PROJECT_ID/todo-app/api']   
+     args: ['push', '$_REGION-docker.pkg.dev/$PROJECT_ID/$_BASENAME-app/api']   
    - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
      entrypoint: bash
-     args: ['-c', 'gcloud run deploy todo-api --image $_REGION-docker.pkg.dev/$PROJECT_ID/todo-app/api --region $_REGION --allow-unauthenticated --vpc-connector vpc-connector --add-cloudsql-instances todo-db --set-env-vars todo_user=todo_user,todo_pass=todo_pass,todo_host=$$SQLHOST,todo_name=todo,REDISPORT=6379,REDISHOST=$$REDISHOST']
+     args: ['-c', 'gcloud run deploy todo-api --image $_REGION-docker.pkg.dev/$PROJECT_ID/$_BASENAME-app/api --region $_REGION --allow-unauthenticated --vpc-connector vpc-connector --add-cloudsql-instances todo-db --set-env-vars todo_user=todo_user,todo_pass=todo_pass,todo_host=$$SQLHOST,todo_name=todo,REDISPORT=6379,REDISHOST=$$REDISHOST']
      secretEnv: ["REDISHOST","SQLHOST"]          
    - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
      entrypoint: bash
      args: [ './massage.sh', '$_REGION' ]
      dir: "code/frontend"
    - name: 'gcr.io/cloud-builders/docker'
-     args: [ 'build', '-t', '$_REGION-docker.pkg.dev/$PROJECT_ID/todo-app/fe', '.' ]
+     args: [ 'build', '-t', '$_REGION-docker.pkg.dev/$PROJECT_ID/$_BASENAME-app/fe', '.' ]
      dir: "code/frontend"
    - name: 'gcr.io/cloud-builders/docker'
-     args: ['push', '$_REGION-docker.pkg.dev/$PROJECT_ID/todo-app/fe']
+     args: ['push', '$_REGION-docker.pkg.dev/$PROJECT_ID/$_BASENAME-app/fe']
    - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
      entrypoint: gcloud
      args: [ 'run', 
               'deploy', 
               'todo-fe', 
-              '--image', '$_REGION-docker.pkg.dev/$PROJECT_ID/todo-app/fe', 
+              '--image', '$_REGION-docker.pkg.dev/$PROJECT_ID/$_BASENAME-app/fe', 
               '--region', '$_REGION', 
               '--allow-unauthenticated', 
               '--port', '80']    
@@ -48,3 +48,4 @@ availableSecrets:
     env: 'REDISHOST'              
 substitutions:
   _REGION: us-central1
+  _BASENAME: todo

@@ -5,3 +5,4 @@ errFile
 .terraform*
 terraform.tfstate
 clean
+terraform.tfstate.backup

@@ -14,8 +14,9 @@
 
 steps:
    - name: 'gcr.io/cloud-builders/docker'
-     args: [ 'build', '-t', '$_REGION-docker.pkg.dev/$PROJECT_ID/todo-app/api', '.' ]
+     args: [ 'build', '-t', '$_REGION-docker.pkg.dev/$PROJECT_ID/$_BASENAME-app/api', '.' ]
    - name: 'gcr.io/cloud-builders/docker'
-     args: ['push', '$_REGION-docker.pkg.dev/$PROJECT_ID/todo-app/api']   
+     args: ['push', '$_REGION-docker.pkg.dev/$PROJECT_ID/$_BASENAME-app/api']   
 substitutions:
   _REGION: us-central1
+  _BASENAME: todo

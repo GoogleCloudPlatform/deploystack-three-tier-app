@@ -61,16 +61,16 @@ function evalTest() {
 
     if [ ${#ERR} -gt 0 ]; then
         if [ "$expected" = "EXPECTERROR" ]; then
-            printf "Expected Error thrown \n"
+            printf "ok \n"
             return
         fi
 
-        printf "Halting - error: '$ERR'  \n"
+        printf "expecting no error, got error='$ERR'   \n"
         exit 1
     fi
 
     if [ "$got" != "$expected" ]; then
-        printf "Halting: '$got'  \n"
+        printf "expecting: '$expected' got: '$got'  \n"
         exit 1
     fi
 
@@ -92,10 +92,10 @@ gcloud config set project ${PROJECT}
 terraform init
 terraform apply -auto-approve -var project_id="${PROJECT}" -var project_number="${PROJECT_NUMBER}" -var region="${REGION}" -var basename="${BASENAME}" -var zone="${ZONE}"
 
-
+SQLNAME=$(terraform output -raw sqlservername)
 section_open "Testing Secrets"
-    evalTest 'gcloud secrets describe sqlhost --format="value(name)"' "projects/$PROJECTNUMBER/secrets/sqlhost"
-    evalTest 'gcloud secrets describe redishost --format="value(name)"' "projects/$PROJECTNUMBER/secrets/redishost"
+    evalTest 'gcloud secrets describe sqlhost --format="value(name)" | xargs' "projects/$PROJECT_NUMBER/secrets/sqlhost"
+    evalTest 'gcloud secrets describe redishost --format="value(name)"' "projects/$PROJECT_NUMBER/secrets/redishost"
 section_close
 
 section_open "Test Cloud Run Services"
@@ -108,7 +108,7 @@ section_open "Test SQL Server"
 section_close
 
 section_open "Test Redis Server "
-    evalTest 'gcloud redis instances describe $REDISNAME --region=$REGION --format="value(name)"' "projects/$PROJECT/locations/$REGION/instances/$REDISNAME"
+    evalTest 'gcloud redis instances describe $BASENAME-cache --region=$REGION --format="value(name)"' "projects/$PROJECT/locations/$REGION/instances/$BASENAME-cache"
 section_close
 
 section_open "Testing VPN"
@@ -117,16 +117,13 @@ section_open "Testing VPN"
 section_close
 
 # This is a bug. Everytime this command runs "Encryption: Google Managed Key gets thrown in STDERR"
-section_open "Testing Artifact Registry repoistory for containers"
+section_open "Testing Artifact Registry repository for containers"
     evalTest 'gcloud artifacts repositories describe todo-app --location $REGION --format="value(name)"' "EXPECTERROR"
 section_close
 
-terraform destroy -auto-approve -var project_id="${BASENAME}" -var project_number="${PROJECT_NUMBER}" -var region="${REGION}" -var basename="${BASENAME}" -var zone="${ZONE}"
-./uninstall $PROJECT $REGION $SQLNAME 
 
-# section_open "Waiting for Redis Server to be deleted"
-# await_command state 5 60 "redisGone" $REDISNAME $REGION
-# section_close
+terraform destroy -auto-approve -var project_id="${PROJECT}" -var project_number="${PROJECT_NUMBER}" -var region="${REGION}" -var basename="${BASENAME}" -var zone="${ZONE}"
+
 
 
 section_open "Testing Secrets"
@@ -144,7 +141,7 @@ evalTest 'gcloud sql instances describe $SQLNAME --format="value(name)"' "EXPECT
 section_close
 
 section_open "Test Redis Server "
-evalTest 'gcloud redis instances describe $REDISNAME --region=$REGION --format="value(name)"' "EXPECTERROR"
+evalTest 'gcloud redis instances describe $BASENAME-cache --region=$REGION --format="value(name)"' "EXPECTERROR"
 section_close
 
 section_open "Testing VPN"

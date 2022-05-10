@@ -57,7 +57,7 @@ resource "google_project_service" "all" {
   for_each                   = toset(var.gcp_service_list)
   project                    = var.project_number
   service                    = each.key
-  disable_dependent_services = true
+  disable_on_destroy = false
 }
 
 
@@ -337,4 +337,9 @@ resource "google_cloud_run_service_iam_policy" "noauth_fe" {
 output "endpoint" {
   value       = google_cloud_run_service.fe.status[0].url
   description = "The url of the front end which we want to surface to the user"
+}
+
+output "sqlservername" {
+  value       = google_sql_database_instance.todo_database.name
+  description = "The name of the database that we randomly generated."
 }

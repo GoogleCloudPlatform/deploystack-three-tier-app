@@ -1,0 +1,9 @@
+This process will create the following:
+	* Frontend - Cloud Run Service 
+	* Middleware - Cloud Run Service
+	* Backend - Cloud Sql MySQL instance 
+	* Cache - Cloud Memorystore
+	* Secrets - Cloud Secret Manager
+
+All of these will spin up configured in a 3 tier application that delievers a
+TODO app to show all of these pieces working together.    

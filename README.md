@@ -15,12 +15,11 @@ below.
         <img alt="Open in Cloud Shell" src="https://gstatic.com/cloudssh/images/open-btn.svg"></a>
 
 Once this opens up, you can install by: 
-1. Creating a Google Cloud Project
-1. Then typing `./install`
+1. Typing `./deploystack install`
 
 ## Cleanup 
 To remove all billing components from the project
-1. Typing `./uninstall`
+1. Typing `./deploystack uninstall`
 
 ## Development
 There is a development setup for this application that uses Docker to run 

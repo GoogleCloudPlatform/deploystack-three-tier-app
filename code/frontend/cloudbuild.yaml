@@ -13,7 +13,13 @@
 # limitations under the License.
 
 steps:
-   - name: 'gcr.io/$PROJECT_ID/terraform-tester'
+   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
      entrypoint: bash
-     args: [ './test' ]
-timeout: 2200s
+     args: [ './massage.sh', '$_REGION' ]
+   - name: 'gcr.io/cloud-builders/docker'
+     args: [ 'build', '-t', '$_REGION-docker.pkg.dev/$PROJECT_ID/$_BASENAME-app/fe', '.' ]
+   - name: 'gcr.io/cloud-builders/docker'
+     args: ['push', '$_REGION-docker.pkg.dev/$PROJECT_ID/$_BASENAME-app/fe']
+substitutions:
+  _REGION: us-central1
+  _BASENAME: todo

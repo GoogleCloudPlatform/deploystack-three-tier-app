@@ -1,2 +1,11 @@
 
 errFile
+.terraform.lock.hcl
+.terraform.tfstate.lock.info
+.terraform*
+terraform.tfstate
+clean
+terraform.tfstate.backup
+go.sum
+go.mod
+terraform.tfvars

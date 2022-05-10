@@ -1,0 +1,11 @@
+[1;36m********************************************************************************[0m
+[1;36mDeploystack INSTALL                                                             [0m
+[1;36m********************************************************************************[0m
+
+To continue, run this command at the command line below.
+This process should walk you through setting up and deploying
+this deploystack application.
+
+[46m********************************************************************************[0m
+[46m./deploystack install                                                           [0m
+[46m********************************************************************************[0m

@@ -1,5 +1,5 @@
-
-
+PROJECT=$1
+SQLNAME=$2
 
 SQLSERVICEACCOUNT=$(gcloud sql instances describe $SQLNAME --format="value(serviceAccountEmailAddress)" | xargs)
 gsutil mb gs://$PROJECT-temp 

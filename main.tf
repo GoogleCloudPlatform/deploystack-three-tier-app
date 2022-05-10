@@ -121,7 +121,6 @@ resource "random_id" "id" {
 	  byte_length = 2
 }
 
-# TODO: Make name section less random nonsesne and more in line with the project
 # Handle Database
 resource "google_sql_database_instance" "todo_database" {
   name="${var.basename}-db-${random_id.id.hex}"
@@ -147,6 +146,11 @@ resource "google_sql_database_instance" "todo_database" {
     google_project_service.all,
     google_service_networking_connection.vpcpeerings
   ]
+
+  provisioner "local-exec" {
+    working_dir = "${path.module}/code/database"
+    command     = "./load_schema.sh ${var.project_id} ${google_sql_database_instance.todo_database.name}"
+  }
 
 
 }

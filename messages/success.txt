@@ -1,0 +1,10 @@
+
+
+
+CONGRATS!!!!!!! 
+You have configured a project, spun up architecture, and deployed code.
+
+See your site at the url labled "endpoint" referenced above. It might 
+take a few minutes to be available, as all of the constiuent parts warm up.
+
+

@@ -1,11 +1,39 @@
+function deploystackError(){
+  repo=$(git config --get remote.origin.url)
+
+
+  echo
+  echo "An error occured collecting the necessary information to run your Deploystack"
+  echo "application. Please try again."
+  echo 
+  echo "If the problem persists, please file an issue with the Github repo:"
+  echo "${repo/.git/}/issues"
+}
+
+
+FAILED=false
 case $1 in
 
   "install")
     go mod init exec
     go mod tidy
-    go run main.go
+    go run main.go || FAILED=true
+    if $FAILED; then
+      deploystackError 
+      exit 1
+    fi
+
     terraform init
-    terraform apply -auto-approve -var-file=terraform.tfvars
+    terraform apply -auto-approve -var-file=terraform.tfvars || FAILED=true
+
+    if $FAILED; then
+      deploystackError 
+      exit 1
+    fi
+
+    if [ -f "messages/success.txt" ]; then
+        cat messages/success.txt
+    fi
     ;;
 
   "uninstall")
@@ -19,3 +47,5 @@ case $1 in
     echo "type './deploystack uninstall' to uninstall this deploystack application" 
     ;;
 esac
+
+

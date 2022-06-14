@@ -114,6 +114,7 @@ resource "google_vpc_access_connector" "connector" {
   ip_cidr_range = "10.8.0.0/28"
   network       = "default"
   region        = var.region
+  max_throughput= 300
   depends_on    = [google_compute_global_address.google_managed_services_vpn_connector, google_project_service.all]
 }
 

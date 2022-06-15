@@ -115,7 +115,7 @@ resource "google_vpc_access_connector" "connector" {
   network       = "default"
   region        = var.region
   max_throughput= 300
-  depends_on    = [google_compute_global_address.google_managed_services_vpn_connector, google_project_service.all]
+  depends_on    = [google_compute_global_address.google_managed_services_vpn_connector, google_project_service.all,  google_service_networking_connection.vpcpeerings]
 }
 
 resource "random_id" "id" {

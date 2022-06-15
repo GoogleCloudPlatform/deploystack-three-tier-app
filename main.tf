@@ -104,7 +104,7 @@ resource "google_compute_global_address" "google_managed_services_vpn_connector"
 resource "google_service_networking_connection" "vpcpeerings" {
   network                 = local.defaultnetwork
   service                 = "servicenetworking.googleapis.com"
-  reserved_peering_ranges = [google_compute_global_address.google_managed_services_vpn_connector.name]
+  reserved_peering_ranges = [google_compute_global_address.google_managed_services_vpn_connector.name, google_vpc_access_connector.connector]
 }
 
 resource "google_vpc_access_connector" "connector" {
@@ -115,7 +115,7 @@ resource "google_vpc_access_connector" "connector" {
   network       = "default"
   region        = var.region
   max_throughput= 300
-  depends_on    = [google_compute_global_address.google_managed_services_vpn_connector, google_project_service.all,  google_service_networking_connection.vpcpeerings]
+  depends_on    = [google_compute_global_address.google_managed_services_vpn_connector, google_project_service.all]
 }
 
 resource "random_id" "id" {

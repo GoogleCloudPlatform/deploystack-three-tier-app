@@ -90,21 +90,28 @@ resource "google_project_iam_member" "secretmanager_secretAccessor" {
   depends_on = [google_project_service.all]
 }
 
+resource "google_compute_network" "network" {
+  provider      = google-beta
+  name          = "${var.basename}-network"
+  auto_create_subnetworks = false
+  project       = var.project_id
+}
+
 # Handle Networking details
 resource "google_compute_global_address" "google_managed_services_vpn_connector" {
   name          = "google-managed-services-vpn-connector"
   purpose       = "VPC_PEERING"
   address_type  = "INTERNAL"
   prefix_length = 16
-  network       = local.defaultnetwork
+  network       = google_compute_network.network.id
   project       = var.project_id
   depends_on    = [google_project_service.all]
 }
 
 resource "google_service_networking_connection" "vpcpeerings" {
-  network                 = local.defaultnetwork
+  network                 = google_compute_network.network.id
   service                 = "servicenetworking.googleapis.com"
-  reserved_peering_ranges = [google_compute_global_address.google_managed_services_vpn_connector.name, google_vpc_access_connector.connector]
+  reserved_peering_ranges = [google_compute_global_address.google_managed_services_vpn_connector.name]
 }
 
 resource "google_vpc_access_connector" "connector" {
@@ -136,7 +143,7 @@ resource "google_sql_database_instance" "todo_database" {
     disk_type             = "PD_SSD"
     ip_configuration {
       ipv4_enabled    = false
-      private_network = local.defaultnetwork
+      private_network = google_compute_network.network.id
     }
     location_preference {
       zone = var.zone
@@ -158,7 +165,7 @@ resource "google_sql_database_instance" "todo_database" {
 
 # Handle redis instance
 resource "google_redis_instance" "todo_cache" {
-  authorized_network      = local.defaultnetwork
+  authorized_network      = google_compute_network.network.id
   connect_mode            = "DIRECT_PEERING"
   location_id             = var.zone
   memory_size_gb          = 1

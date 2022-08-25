@@ -165,8 +165,6 @@ resource "google_sql_database_instance" "main" {
     working_dir = "${path.module}/code/database"
     command     = "./load_schema.sh ${var.project_id} ${google_sql_database_instance.main.name}"
   }
-
-
 }
 
 # Handle redis instance
@@ -226,7 +224,6 @@ resource "google_secret_manager_secret_version" "sqlhost" {
   secret      = "projects/${var.project_number}/secrets/sqlhost"
   secret_data = google_sql_database_instance.main.private_ip_address
   depends_on  = [google_project_service.all, google_sql_database_instance.main, google_secret_manager_secret.sqlhost]
-
 }
 
 resource "null_resource" "cloudbuild_api" {
@@ -308,7 +305,6 @@ resource "google_cloud_run_service" "api" {
   ]
 }
 
-
 resource "null_resource" "cloudbuild_fe" {
   provisioner "local-exec" {
     working_dir = "${path.module}/code/frontend"
@@ -365,7 +361,6 @@ output "sqlservername" {
   value       = google_sql_database_instance.main.name
   description = "The name of the database that we randomly generated."
 }
-
 
 output "api" {
   value       = google_cloud_run_service.api.status[0].url

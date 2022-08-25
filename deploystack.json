@@ -1,4 +1,4 @@
-{	"title":"TODO",
+{	"title":"Three Tier App (TODO)",
 	"duration":9,
 	"collect_project":true,
 	"collect_project_number":true,
@@ -8,6 +8,6 @@
 	"region_default":"us-central1",
 	"collect_zone":true,
 	"hard_settings":{
-		"basename":"todo"
+		"basename":"three-tier-app"
 	}
 }

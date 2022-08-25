@@ -19,7 +19,7 @@ variable "basename" {
 }
 
 locals {
-  sabuild        = "${var.project_number}@cloudbuild.gserviceaccount.com"
+  sabuild = "${var.project_number}@cloudbuild.gserviceaccount.com"
 }
 
 
@@ -50,9 +50,9 @@ variable "gcp_service_list" {
 }
 
 resource "google_project_service" "all" {
-  for_each                   = toset(var.gcp_service_list)
-  project                    = var.project_number
-  service                    = each.key
+  for_each           = toset(var.gcp_service_list)
+  project            = var.project_number
+  service            = each.key
   disable_on_destroy = false
 }
 
@@ -72,7 +72,7 @@ variable "build_roles_list" {
 }
 
 resource "google_service_account" "runsa" {
-   project                    = var.project_number
+  project      = var.project_number
   account_id   = "${var.basename}-run-sa"
   display_name = "Service Account Three Tier App on Cloud Run"
 }
@@ -95,10 +95,10 @@ resource "google_project_iam_member" "allbuild" {
 
 
 resource "google_compute_network" "main" {
-  provider      = google-beta
-  name          = "${var.basename}-private-network"
+  provider                = google-beta
+  name                    = "${var.basename}-private-network"
   auto_create_subnetworks = true
-  project       = var.project_id
+  project                 = var.project_id
 }
 
 
@@ -117,27 +117,27 @@ resource "google_service_networking_connection" "main" {
   network                 = google_compute_network.main.id
   service                 = "servicenetworking.googleapis.com"
   reserved_peering_ranges = [google_compute_global_address.main.name]
-  depends_on    = [google_project_service.all]
+  depends_on              = [google_project_service.all]
 }
 
 resource "google_vpc_access_connector" "main" {
-  provider      = google-beta
-  project       = var.project_id
- name           = "${var.basename}-vpc-cx"
-  ip_cidr_range = "10.8.0.0/28"
-  network       = google_compute_network.main.id
-  region        = var.region
-  max_throughput= 300
-  depends_on    = [google_compute_global_address.main, google_project_service.all]
+  provider       = google-beta
+  project        = var.project_id
+  name           = "${var.basename}-vpc-cx"
+  ip_cidr_range  = "10.8.0.0/28"
+  network        = google_compute_network.main.id
+  region         = var.region
+  max_throughput = 300
+  depends_on     = [google_compute_global_address.main, google_project_service.all]
 }
 
 resource "random_id" "id" {
-	  byte_length = 2
+  byte_length = 2
 }
 
 # Handle Database
 resource "google_sql_database_instance" "main" {
-  name="${var.basename}-db-${random_id.id.hex}"
+  name             = "${var.basename}-db-${random_id.id.hex}"
   database_version = "MYSQL_5_7"
   region           = var.region
   project          = var.project_id

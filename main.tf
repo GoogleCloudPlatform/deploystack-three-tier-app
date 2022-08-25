@@ -20,18 +20,14 @@ variable "basename" {
 
 locals {
   sabuild        = "${var.project_number}@cloudbuild.gserviceaccount.com"
-  sacompute      = "${var.project_number}-compute@developer.gserviceaccount.com"
-  defaultnetwork = "projects/${var.project_id}/global/networks/default"
 }
 
-data "google_iam_policy" "noauth" {
-  binding {
-    role = "roles/run.invoker"
-    members = [
-      "allUsers",
-    ]
-  }
+
+data "google_project" "project" {
+  project_id = var.project_id
 }
+
+
 
 # Handle services
 variable "gcp_service_list" {
@@ -75,6 +71,20 @@ variable "build_roles_list" {
   ]
 }
 
+resource "google_service_account" "runsa" {
+   project                    = var.project_number
+  account_id   = "${var.basename}-run-sa"
+  display_name = "Service Account Three Tier App on Cloud Run"
+}
+
+resource "google_project_iam_member" "allrun" {
+  project    = data.google_project.project.number
+  role       = "roles/secretmanager.secretAccessor"
+  member     = "serviceAccount:${google_service_account.runsa.email}"
+  depends_on = [google_project_service.all]
+}
+
+
 resource "google_project_iam_member" "allbuild" {
   for_each   = toset(var.build_roles_list)
   project    = var.project_number
@@ -83,46 +93,42 @@ resource "google_project_iam_member" "allbuild" {
   depends_on = [google_project_service.all]
 }
 
-resource "google_project_iam_member" "secretmanager_secretAccessor" {
-  project    = var.project_id
-  role       = "roles/secretmanager.secretAccessor"
-  member     = "serviceAccount:${local.sacompute}"
-  depends_on = [google_project_service.all]
-}
 
-resource "google_compute_network" "network" {
+resource "google_compute_network" "main" {
   provider      = google-beta
-  name          = "${var.basename}-network"
-  auto_create_subnetworks = false
+  name          = "${var.basename}-private-network"
+  auto_create_subnetworks = true
   project       = var.project_id
 }
 
-# Handle Networking details
-resource "google_compute_global_address" "google_managed_services_vpn_connector" {
-  name          = "google-managed-services-vpn-connector"
+
+resource "google_compute_global_address" "main" {
+  name          = "${var.basename}-vpc-address"
+  provider      = google-beta
   purpose       = "VPC_PEERING"
   address_type  = "INTERNAL"
   prefix_length = 16
-  network       = google_compute_network.network.id
+  network       = google_compute_network.main.id
   project       = var.project_id
   depends_on    = [google_project_service.all]
 }
 
-resource "google_service_networking_connection" "vpcpeerings" {
-  network                 = google_compute_network.network.id
+resource "google_service_networking_connection" "main" {
+  network                 = google_compute_network.main.id
   service                 = "servicenetworking.googleapis.com"
-  reserved_peering_ranges = [google_compute_global_address.google_managed_services_vpn_connector.name]
+  reserved_peering_ranges = [google_compute_global_address.main.name]
+  depends_on    = [google_project_service.all]
 }
 
-resource "google_vpc_access_connector" "connector" {
+resource "google_vpc_access_connector" "main" {
   provider      = google-beta
   project       = var.project_id
-  name          = "vpc-connector"
+ name           = "${var.basename}-vpc-cx"
   ip_cidr_range = "10.8.0.0/28"
-  network       = "default"
+  network       = google_compute_network.main.id
   region        = var.region
   max_throughput= 300
-  depends_on    = [google_compute_global_address.google_managed_services_vpn_connector, google_project_service.all]
+  depends_on    = [google_compute_global_address.main, google_project_service.all]
 }
 
 resource "random_id" "id" {
@@ -130,7 +136,7 @@ resource "random_id" "id" {
 }
 
 # Handle Database
-resource "google_sql_database_instance" "todo_database" {
+resource "google_sql_database_instance" "main" {
   name="${var.basename}-db-${random_id.id.hex}"
   database_version = "MYSQL_5_7"
   region           = var.region
@@ -143,7 +149,7 @@ resource "google_sql_database_instance" "todo_database" {
     disk_type             = "PD_SSD"
     ip_configuration {
       ipv4_enabled    = false
-      private_network = google_compute_network.network.id
+      private_network = google_compute_network.main.id
     }
     location_preference {
       zone = var.zone
@@ -152,20 +158,20 @@ resource "google_sql_database_instance" "todo_database" {
   deletion_protection = false
   depends_on = [
     google_project_service.all,
-    google_service_networking_connection.vpcpeerings
+    google_service_networking_connection.main
   ]
 
   provisioner "local-exec" {
     working_dir = "${path.module}/code/database"
-    command     = "./load_schema.sh ${var.project_id} ${google_sql_database_instance.todo_database.name}"
+    command     = "./load_schema.sh ${var.project_id} ${google_sql_database_instance.main.name}"
   }
 
 
 }
 
 # Handle redis instance
-resource "google_redis_instance" "todo_cache" {
-  authorized_network      = google_compute_network.network.id
+resource "google_redis_instance" "main" {
+  authorized_network      = google_compute_network.main.id
   connect_mode            = "DIRECT_PEERING"
   location_id             = var.zone
   memory_size_gb          = 1
@@ -202,8 +208,8 @@ resource "google_secret_manager_secret" "redishost" {
 resource "google_secret_manager_secret_version" "redishost" {
   enabled     = true
   secret      = "projects/${var.project_number}/secrets/redishost"
-  secret_data = google_redis_instance.todo_cache.host
-  depends_on  = [google_project_service.all, google_redis_instance.todo_cache, google_secret_manager_secret.redishost]
+  secret_data = google_redis_instance.main.host
+  depends_on  = [google_project_service.all, google_redis_instance.main, google_secret_manager_secret.redishost]
 }
 
 resource "google_secret_manager_secret" "sqlhost" {
@@ -218,8 +224,8 @@ resource "google_secret_manager_secret" "sqlhost" {
 resource "google_secret_manager_secret_version" "sqlhost" {
   enabled     = true
   secret      = "projects/${var.project_number}/secrets/sqlhost"
-  secret_data = google_sql_database_instance.todo_database.private_ip_address
-  depends_on  = [google_project_service.all, google_sql_database_instance.todo_database, google_secret_manager_secret.sqlhost]
+  secret_data = google_sql_database_instance.main.private_ip_address
+  depends_on  = [google_project_service.all, google_sql_database_instance.main, google_secret_manager_secret.sqlhost]
 
 }
 
@@ -244,6 +250,7 @@ resource "google_cloud_run_service" "api" {
 
   template {
     spec {
+      service_account_name = google_service_account.runsa.email
       containers {
         image = "${var.region}-docker.pkg.dev/${var.project_id}/${var.basename}-app/api"
         env {
@@ -288,26 +295,19 @@ resource "google_cloud_run_service" "api" {
     metadata {
       annotations = {
         "autoscaling.knative.dev/maxScale"        = "1000"
-        "run.googleapis.com/cloudsql-instances"   = google_sql_database_instance.todo_database.connection_name
+        "run.googleapis.com/cloudsql-instances"   = google_sql_database_instance.main.connection_name
         "run.googleapis.com/client-name"          = "terraform"
         "run.googleapis.com/vpc-access-egress"    = "all"
-        "run.googleapis.com/vpc-access-connector" = google_vpc_access_connector.connector.id
+        "run.googleapis.com/vpc-access-connector" = google_vpc_access_connector.main.id
       }
     }
   }
   autogenerate_revision_name = true
   depends_on = [
     null_resource.cloudbuild_api,
-    google_project_iam_member.secretmanager_secretAccessor
   ]
 }
 
-resource "google_cloud_run_service_iam_policy" "noauth_api" {
-  location    = google_cloud_run_service.api.location
-  project     = google_cloud_run_service.api.project
-  service     = google_cloud_run_service.api.name
-  policy_data = data.google_iam_policy.noauth.policy_data
-}
 
 resource "null_resource" "cloudbuild_fe" {
   provisioner "local-exec" {
@@ -328,6 +328,7 @@ resource "google_cloud_run_service" "fe" {
 
   template {
     spec {
+      service_account_name = google_service_account.runsa.email
       containers {
         image = "${var.region}-docker.pkg.dev/${var.project_id}/${var.basename}-app/fe"
         ports {
@@ -339,11 +340,20 @@ resource "google_cloud_run_service" "fe" {
   depends_on = [null_resource.cloudbuild_fe]
 }
 
-resource "google_cloud_run_service_iam_policy" "noauth_fe" {
-  location    = google_cloud_run_service.fe.location
-  project     = google_cloud_run_service.fe.project
-  service     = google_cloud_run_service.fe.name
-  policy_data = data.google_iam_policy.noauth.policy_data
+resource "google_cloud_run_service_iam_member" "noauth_api" {
+  location = google_cloud_run_service.api.location
+  project  = google_cloud_run_service.api.project
+  service  = google_cloud_run_service.api.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}
+
+resource "google_cloud_run_service_iam_member" "noauth_fe" {
+  location = google_cloud_run_service.fe.location
+  project  = google_cloud_run_service.fe.project
+  service  = google_cloud_run_service.fe.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
 }
 
 output "endpoint" {
@@ -352,7 +362,7 @@ output "endpoint" {
 }
 
 output "sqlservername" {
-  value       = google_sql_database_instance.todo_database.name
+  value       = google_sql_database_instance.main.name
   description = "The name of the database that we randomly generated."
 }
 

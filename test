@@ -115,8 +115,8 @@ section_open "Test Redis Server "
 section_close
 
 section_open "Testing VPN"
-    evalTest 'gcloud compute networks vpc-access connectors describe vpc-connector --region $REGION --format="value(name)"' "projects/$PROJECT/locations/$REGION/connectors/vpc-connector"
-    evalTest 'gcloud compute addresses describe google-managed-services-vpn-connector --global --format="value(name)"' "google-managed-services-vpn-connector"
+    evalTest 'gcloud compute networks vpc-access connectors describe $BASENAME-vpc-cx --region $REGION --format="value(name)"' "projects/$PROJECT/locations/$REGION/connectors/$BASENAME-vpc-cx"
+    evalTest 'gcloud compute addresses describe $BASENAME-vpc-address --global --format="value(name)"' "$BASENAME-vpc-address"
 section_close
 
 # This is a bug. Everytime this command runs "Encryption: Google Managed Key gets thrown in STDERR"
@@ -129,38 +129,37 @@ section_open "Testing Endpoint is working"
 section_close
 
 section_open "Testing API is working"
-    evalTest 'curl -s -o /dev/null -w "%{http_code}" $API_URL' "200"
+    evalTest 'curl -s -o /dev/null -w "%{http_code}" $API_URL/api/v1/todo' "200"
 section_close
 
 terraform destroy -auto-approve -var project_id="${PROJECT}" -var project_number="${PROJECT_NUMBER}" -var region="${REGION}" -var basename="${BASENAME}" -var zone="${ZONE}"
 
 section_open "Testing Secrets"
-evalTest 'gcloud secrets describe sqlhost --format="value(name)"' "EXPECTERROR"
-evalTest 'gcloud secrets describe redishost --format="value(name)"' "EXPECTERROR"
+    evalTest 'gcloud secrets describe sqlhost --format="value(name)"' "EXPECTERROR"
+    evalTest 'gcloud secrets describe redishost --format="value(name)"' "EXPECTERROR"
 section_close
 
 section_open "Test Cloud Run Services"
-evalTest 'gcloud run services describe todo-fe --region=$REGION --format="value(name)"' "EXPECTERROR"
-evalTest 'gcloud run services describe todo-api --region=$REGION --format="value(name)"' "EXPECTERROR"
+    evalTest 'gcloud run services describe todo-fe --region=$REGION --format="value(name)"' "EXPECTERROR"
+    evalTest 'gcloud run services describe todo-api --region=$REGION --format="value(name)"' "EXPECTERROR"
 section_close
 
 section_open "Test SQL Server"
-evalTest 'gcloud sql instances describe $SQLNAME --format="value(name)"' "EXPECTERROR"
+    evalTest 'gcloud sql instances describe $SQLNAME --format="value(name)"' "EXPECTERROR"
 section_close
 
 section_open "Test Redis Server "
-evalTest 'gcloud redis instances describe $BASENAME-cache --region=$REGION --format="value(name)"' "EXPECTERROR"
+    evalTest 'gcloud redis instances describe $BASENAME-cache --region=$REGION --format="value(name)"' "EXPECTERROR"
 section_close
 
 section_open "Testing VPN"
-evalTest 'gcloud compute networks vpc-access connectors describe vpc-connector --region $REGION --format="value(name)"' "EXPECTERROR"
-evalTest 'gcloud compute addresses describe google-managed-services-vpn-connector --global --format="value(name)"' "EXPECTERROR"
+    evalTest 'gcloud compute networks vpc-access connectors describe $BASENAME-vpc-cx --region $REGION --format="value(name)"' "EXPECTERROR"
+    evalTest 'gcloud compute addresses describe $BASENAME-vpc-address --global --format="value(name)"' "EXPECTERROR"
 section_close
 
 section_open "Testing Artifact Registry repoistory for containers"
-evalTest 'gcloud artifacts repositories describe todo-app --location $REGION --format="value(name)"' "EXPECTERROR"
+    evalTest 'gcloud artifacts repositories describe todo-app --location $REGION --format="value(name)"' "EXPECTERROR"
 section_close
-
 
 printf "$DIVIDER"
 printf "CONGRATS!!!!!!! \n"

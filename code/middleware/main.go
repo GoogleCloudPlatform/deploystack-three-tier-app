@@ -48,6 +48,7 @@ func main() {
 
 	router := mux.NewRouter().StrictSlash(true)
 	router.HandleFunc("/healthz", healthHandler).Methods(http.MethodGet)
+	router.HandleFunc("/api/v1/healthz", healthHandler).Methods(http.MethodGet)
 	router.HandleFunc("/api/v1/todo", listHandler).Methods(http.MethodGet, http.MethodOptions)
 	router.HandleFunc("/api/v1/todo", createHandler).Methods(http.MethodPost)
 	router.HandleFunc("/api/v1/todo/{id}", readHandler).Methods(http.MethodGet)

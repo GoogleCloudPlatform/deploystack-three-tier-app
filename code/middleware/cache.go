@@ -91,14 +91,14 @@ func (c *Cache) Save(todo Todo) error {
 
 	json, err := todo.JSON()
 	if err != nil {
-		return err
+		return fmt.Errorf("cannot convert todo to json: %s", err)
 	}
 
 	conn.Send("MULTI")
 	conn.Send("SET", strconv.Itoa(todo.ID), json)
 
 	if _, err := conn.Do("EXEC"); err != nil {
-		return err
+		return fmt.Errorf("cannot perform exec operation on cache: %s", err)
 	}
 	c.log("Successfully saved todo to cache")
 	return nil

@@ -93,6 +93,9 @@ terraform init
 terraform apply -auto-approve -var project_id="${PROJECT}" -var project_number="${PROJECT_NUMBER}" -var region="${REGION}" -var basename="${BASENAME}" -var zone="${ZONE}"
 
 SQLNAME=$(terraform output -raw sqlservername)
+API_URL=$(terraform output -raw api)
+FE_URL=$(terraform output -raw endpoint)
+
 section_open "Testing Secrets"
     evalTest 'gcloud secrets describe sqlhost --format="value(name)" | xargs' "projects/$PROJECT_NUMBER/secrets/sqlhost"
     evalTest 'gcloud secrets describe redishost --format="value(name)"' "projects/$PROJECT_NUMBER/secrets/redishost"
@@ -121,10 +124,15 @@ section_open "Testing Artifact Registry repository for containers"
     evalTest 'gcloud artifacts repositories describe todo-app --location $REGION --format="value(name)"' "EXPECTERROR"
 section_close
 
+section_open "Testing Endpoint is working"
+    evalTest 'curl -s -o /dev/null -w "%{http_code}" $FE_URL' "200"
+section_close
+
+section_open "Testing API is working"
+    evalTest 'curl -s -o /dev/null -w "%{http_code}" $API_URL' "200"
+section_close
 
 terraform destroy -auto-approve -var project_id="${PROJECT}" -var project_number="${PROJECT_NUMBER}" -var region="${REGION}" -var basename="${BASENAME}" -var zone="${ZONE}"
-
-
 
 section_open "Testing Secrets"
 evalTest 'gcloud secrets describe sqlhost --format="value(name)"' "EXPECTERROR"

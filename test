@@ -133,8 +133,8 @@ section_open "Testing API is working"
 section_close
 
 section_open "Testing JS is written properly"
-    curl -o tmp '$FE_URL/js/main.js'
-    evalTest 'cat tmp | grep -c $API_URL' "1" 
+    curl -o tmp $FE_URL/js/main.js
+    evalTest "cat tmp | grep -c ${API_URL}" "1" 
 section_close
 
 terraform destroy -auto-approve -var project_id="${PROJECT}" -var project_number="${PROJECT_NUMBER}" -var region="${REGION}" -var basename="${BASENAME}" -var zone="${ZONE}"

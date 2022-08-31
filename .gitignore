@@ -9,3 +9,4 @@ terraform.tfstate.backup
 go.sum
 go.mod
 terraform.tfvars
+tmp

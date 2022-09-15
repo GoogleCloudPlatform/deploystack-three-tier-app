@@ -1,5 +1,6 @@
 {	"title":"Three Tier App (TODO)",
 	"duration":9,
+	"documentation_link": "https://cloud.google.com/shell/docs/cloud-shell-tutorials/deploystack/three-tier-app",
 	"collect_project":true,
 	"collect_project_number":true,
 	"collect_region":true,

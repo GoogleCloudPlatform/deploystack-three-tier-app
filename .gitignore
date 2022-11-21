@@ -4,7 +4,6 @@ errFile
 .terraform.tfstate.lock.info
 .terraform*
 terraform.tfstate
-clean
 terraform.tfstate.backup
 go.sum
 go.mod

@@ -1,0 +1,169 @@
+
+# Copyright 2021 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# I think it's a good idea to test your scripts. It's kinda awkward but you'll 
+# be happy you did 
+
+
+# DON'T REMOVE FROM test script.
+CYAN='\033[0;36m'
+BCYAN='\033[1;36m'
+NC='\033[0m' # No Color
+DIVIDER=$(printf %"$(tput cols)"s | tr " " "*")
+DIVIDER+="\n"
+
+function get_project_id() {
+    local __resultvar=$1
+    VALUE=$(gcloud config get-value project | xargs)
+    eval $__resultvar="'$VALUE'"
+}
+
+function get_project_number() {
+    local __resultvar=$1
+    local PRO=$2
+    VALUE=$(gcloud projects list --filter="project_id=$PRO" --format="value(PROJECT_NUMBER)" | xargs)
+    eval $__resultvar="'$VALUE'"
+}
+
+# DISPLAY HELPERS
+function section_open() {
+    section_description=$1
+    printf "$DIVIDER"
+    printf "${CYAN}$section_description${NC} \n"
+    printf "$DIVIDER"
+}
+
+function section_close() {
+    printf "$DIVIDER"
+    printf "${CYAN}$section_description ${BCYAN}- done${NC}\n"
+    printf "\n\n"
+}
+
+function evalTest() {
+    local command=$1
+    local expected=$2
+
+    local ERR=""
+    got=$(eval $command 2>errFile)
+    ERR=$(<errFile)
+
+    if [ ${#ERR} -gt 0 ]; then
+        if [ "$expected" = "EXPECTERROR" ]; then
+            printf "Expected Error thrown \n"
+            return
+        fi
+
+        printf "Halting - error: '$ERR'  \n"
+        exit 1
+    fi
+
+    if [ "$got" != "$expected" ]; then
+        printf "Halting: '$got'  \n"
+        exit 1
+    fi
+
+    printf "$expected is ok\n"
+}
+# END DON'T REMOVE FROM test script.
+
+
+get_project_id PROJECT
+gcloud services enable cloudresourcemanager.googleapis.com --project=$PROJECT
+get_project_number PROJECT_NUMBER $PROJECT
+REGION=us-central1
+ZONE=us-central1-f
+BASENAME=three-tier-app
+gcloud config set project ${PROJECT}
+SQLNAME=$(terraform output -raw sqlservername)
+
+section_open "Deleting Secrets"
+	gcloud secrets delete sqlhost -q --no-user-output-enabled
+	gcloud secrets delete redishost -q --no-user-output-enabled
+section_close
+
+section_open "Delete Cloud Run Services"
+	gcloud run services delete ${BASENAME}-fe --region=$REGION -q
+	gcloud run services update ${BASENAME}-api --region=$REGION --clear-vpc-connector -q
+	gcloud run services delete ${BASENAME}-api --region=$REGION -q
+section_close
+
+section_open "Delete SQL Server"
+    sql_servers_raw=$(gcloud sql instances list --format="value(name)")
+    read -r -a sql_servers <<< $(echo "$sql_servers_raw" | tr '\n' ' ')
+
+
+    for sql_name in "${sql_servers[@]}"; do
+    gcloud sql instances delete $sql_name -q 
+    done
+section_close
+
+section_open "Delete Redis Server "
+	gcloud redis instances delete $BASENAME-cache --region=$REGION -q --async
+section_close
+
+section_open "Delete VPN"
+	gcloud compute networks vpc-access connectors delete $BASENAME-vpc-cx --region $REGION -q
+	gcloud compute addresses delete $BASENAME-vpc-address --global  --no-user-output-enabled -q
+section_close
+
+
+section_open "Removing Artifact Registry repoistory for containers"
+	gcloud artifacts repositories delete ${BASENAME}-app --location $REGION -q
+section_close
+
+section_open "Delete Service Account"
+    echo "gcloud iam service-accounts delete ${BASENAME}-run-sa@${PROJECT_NUMBER}.iam.gserviceaccount.com -q"
+	gcloud iam service-accounts delete ${BASENAME}-run-sa@${PROJECT_NUMBER}.iam.gserviceaccount.com -q
+section_close
+
+
+section_open "Delete all Permissions"
+printf "Disabling Cloud Build Service Account from deploying to Cloud Run on $PROJECT\n"
+	gcloud projects remove-iam-policy-binding $PROJECT \
+	--member serviceAccount:$SABUILD \
+	--role roles/run.developer --no-user-output-enabled
+printf "Disabling Cloud Build Service Account from setting VPN Access for Cloud Run \n"
+	gcloud projects remove-iam-policy-binding $PROJECT \
+  	--member serviceAccount:$SABUILD \
+  	--role roles/vpaccess.user --no-user-output-enabled
+printf "Disabling Cloud Build Service Account from acting like a Service Account? \n"
+	gcloud projects remove-iam-policy-binding $PROJECT \
+  	--member serviceAccount:$SABUILD \
+  	--role roles/iam.serviceAccountUser --no-user-output-enabled
+printf "Disabling Cloud Build Service Account from publishing to Cloud Run \n"
+	gcloud projects remove-iam-policy-binding $PROJECT \
+	--member=serviceAccount:$SABUILD \
+	--role=roles/run.admin --no-user-output-enabled
+printf "Disabling Cloud Build Service Account from consuming secrets \n"
+	gcloud projects remove-iam-policy-binding $PROJECT \
+  	--member serviceAccount:$SABUILD \
+  	--role roles/secretmanager.secretAccessor --no-user-output-enabled
+printf "Disabling Cloud Build Service Account from create content in Artifact Registry \n"
+	gcloud projects remove-iam-policy-binding $PROJECT \
+	--member=serviceAccount:$SABUILD \
+	--role=roles/artifactregistry.admin --no-user-output-enabled
+section_close
+
+section_open "Cleanup Network stuff"
+
+    PEERING=$(gcloud compute networks peerings list --format="value(peerings[0].name)" | xargs)
+	gcloud compute networks peerings delete $PEERING --network $BASENAME-private-network -q
+    gcloud compute networks delete $BASENAME-private-network -q
+section_close
+
+printf "$DIVIDER"
+printf "CONGRATS!!!!!!! \n"
+printf "Everything is all cleaned up.\n"
+printf "$DIVIDER"	

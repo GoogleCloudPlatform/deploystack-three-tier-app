@@ -86,15 +86,16 @@ get_project_number PROJECT_NUMBER $PROJECT
 REGION=us-central1
 ZONE=us-central1-f
 BASENAME=three-tier-app
+terraformDIR=terraform
 
 gcloud config set project ${PROJECT}
 
-terraform init
-terraform apply -auto-approve -var project_id="${PROJECT}" -var project_number="${PROJECT_NUMBER}" -var region="${REGION}" -var basename="${BASENAME}" -var zone="${ZONE}"
+terraform -chdir="$terraformDIR"  init
+terraform -chdir="$terraformDIR"  apply -auto-approve -var project_id="${PROJECT}" -var project_number="${PROJECT_NUMBER}" -var region="${REGION}" -var basename="${BASENAME}" -var zone="${ZONE}"
 
-SQLNAME=$(terraform output -raw sqlservername)
-API_URL=$(terraform output -raw api)
-FE_URL=$(terraform output -raw endpoint)
+SQLNAME=$(terraform -chdir="$terraformDIR"  output -raw sqlservername)
+API_URL=$(terraform -chdir="$terraformDIR" output -raw api)
+FE_URL=$(terraform -chdir="$terraformDIR" output -raw endpoint)
 
 section_open "Testing Secrets"
     evalTest 'gcloud secrets describe sqlhost --format="value(name)" | xargs' "projects/$PROJECT_NUMBER/secrets/sqlhost"
@@ -138,7 +139,7 @@ section_open "Testing JS is written properly"
     evalTest "cat tmp | grep -c ${stripped}" "1" 
 section_close
 
-terraform destroy -auto-approve -var project_id="${PROJECT}" -var project_number="${PROJECT_NUMBER}" -var region="${REGION}" -var basename="${BASENAME}" -var zone="${ZONE}"
+terraform -chdir="$terraformDIR" destroy -auto-approve -var project_id="${PROJECT}" -var project_number="${PROJECT_NUMBER}" -var region="${REGION}" -var basename="${BASENAME}" -var zone="${ZONE}"
 
 section_open "Testing Secrets"
     evalTest 'gcloud secrets describe sqlhost --format="value(name)"' "EXPECTERROR"

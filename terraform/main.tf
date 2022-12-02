@@ -134,7 +134,7 @@ resource "google_sql_database_instance" "main" {
   ]
 
   provisioner "local-exec" {
-    working_dir = "${path.module}/code/database"
+    working_dir = "${path.module}/../code/database"
     command     = "./load_schema.sh ${var.project_id} ${google_sql_database_instance.main.name}"
   }
 }
@@ -200,7 +200,7 @@ resource "google_secret_manager_secret_version" "sqlhost" {
 
 resource "null_resource" "cloudbuild_api" {
   provisioner "local-exec" {
-    working_dir = "${path.module}/code/middleware"
+    working_dir = "${path.module}/../code/middleware"
     command     = "gcloud builds submit . --substitutions=_REGION=${var.region},_BASENAME=${var.basename}"
   }
 
@@ -279,7 +279,7 @@ resource "google_cloud_run_service" "api" {
 
 resource "null_resource" "cloudbuild_fe" {
   provisioner "local-exec" {
-    working_dir = "${path.module}/code/frontend"
+    working_dir = "${path.module}/../code/frontend"
     command     = "gcloud builds submit . --substitutions=_REGION=${var.region},_BASENAME=${var.basename}"
   }
 

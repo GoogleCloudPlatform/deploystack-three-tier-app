@@ -1,26 +1,20 @@
-variable "project_id" {
-  type = string
-}
+/**
+ * Copyright 2022 Google LLC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
-variable "project_number" {
-  type = string
-}
 
-variable "region" {
-  type = string
-}
-
-variable "zone" {
-  type = string
-}
-
-variable "basename" {
-  type = string
-}
-
-locals {
-  sabuild = "${var.project_number}@cloudbuild.gserviceaccount.com"
-}
 
 
 data "google_project" "project" {
@@ -28,34 +22,12 @@ data "google_project" "project" {
 }
 
 
-
-# Handle services
-variable "gcp_service_list" {
-  description = "The list of apis necessary for the project"
-  type        = list(string)
-  default = [
-    "compute.googleapis.com",
-    "cloudapis.googleapis.com",
-    "vpcaccess.googleapis.com",
-    "servicenetworking.googleapis.com",
-    "cloudbuild.googleapis.com",
-    "sql-component.googleapis.com",
-    "sqladmin.googleapis.com",
-    "storage.googleapis.com",
-    "secretmanager.googleapis.com",
-    "run.googleapis.com",
-    "artifactregistry.googleapis.com",
-    "redis.googleapis.com"
-  ]
-}
-
 resource "google_project_service" "all" {
   for_each           = toset(var.gcp_service_list)
   project            = var.project_number
   service            = each.key
   disable_on_destroy = false
 }
-
 
 # Handle Permissions
 variable "build_roles_list" {
@@ -162,7 +134,7 @@ resource "google_sql_database_instance" "main" {
   ]
 
   provisioner "local-exec" {
-    working_dir = "${path.module}/code/database"
+    working_dir = "${path.module}/../code/database"
     command     = "./load_schema.sh ${var.project_id} ${google_sql_database_instance.main.name}"
   }
 }
@@ -228,7 +200,7 @@ resource "google_secret_manager_secret_version" "sqlhost" {
 
 resource "null_resource" "cloudbuild_api" {
   provisioner "local-exec" {
-    working_dir = "${path.module}/code/middleware"
+    working_dir = "${path.module}/../code/middleware"
     command     = "gcloud builds submit . --substitutions=_REGION=${var.region},_BASENAME=${var.basename}"
   }
 
@@ -307,7 +279,7 @@ resource "google_cloud_run_service" "api" {
 
 resource "null_resource" "cloudbuild_fe" {
   provisioner "local-exec" {
-    working_dir = "${path.module}/code/frontend"
+    working_dir = "${path.module}/../code/frontend"
     command     = "gcloud builds submit . --substitutions=_REGION=${var.region},_BASENAME=${var.basename}"
   }
 
@@ -350,19 +322,4 @@ resource "google_cloud_run_service_iam_member" "noauth_fe" {
   service  = google_cloud_run_service.fe.name
   role     = "roles/run.invoker"
   member   = "allUsers"
-}
-
-output "endpoint" {
-  value       = google_cloud_run_service.fe.status[0].url
-  description = "The url of the front end which we want to surface to the user"
-}
-
-output "sqlservername" {
-  value       = google_sql_database_instance.main.name
-  description = "The name of the database that we randomly generated."
-}
-
-output "api" {
-  value       = google_cloud_run_service.api.status[0].url
-  description = "The url of the front end which we want to surface to the user"
 }

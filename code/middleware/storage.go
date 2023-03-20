@@ -44,11 +44,11 @@ func (s Storage) List() (Todos, error) {
 		if err == ErrCacheMiss {
 			ts, err = s.sqlstorage.List()
 			if err != nil {
-				return ts, fmt.Errorf("error getting list of todos from database: %v", err)
+				return ts, fmt.Errorf("error getting list of todos from database: %w", err)
 			}
 		}
 		if err := s.cache.SaveList(ts); err != nil {
-			return ts, fmt.Errorf("error caching list of todos : %v", err)
+			return ts, fmt.Errorf("error caching list of todos : %w", err)
 		}
 	}
 
@@ -80,11 +80,11 @@ func (s Storage) Read(id string) (Todo, error) {
 		if err == ErrCacheMiss {
 			t, err = s.sqlstorage.Read(id)
 			if err != nil {
-				return t, fmt.Errorf("error getting single from database todo: %v", err)
+				return t, fmt.Errorf("error getting single from database todo: %w", err)
 			}
 		}
 		if err := s.cache.Save(t); err != nil {
-			return t, fmt.Errorf("error caching single todo : %v", err)
+			return t, fmt.Errorf("error caching single todo : %w", err)
 		}
 	}
 
@@ -94,7 +94,7 @@ func (s Storage) Read(id string) (Todo, error) {
 // Update changes one todo in the database.
 func (s Storage) Update(t Todo) error {
 	if err := s.cache.DeleteList(); err != nil {
-		return fmt.Errorf("error clearing cache : %v", err)
+		return fmt.Errorf("error clearing cache : %w", err)
 	}
 
 	if err := s.sqlstorage.Update(t); err != nil {
@@ -111,7 +111,7 @@ func (s Storage) Update(t Todo) error {
 // Delete removes one todo from the database.
 func (s Storage) Delete(id string) error {
 	if err := s.cache.DeleteList(); err != nil {
-		return fmt.Errorf("error clearing cache : %v", err)
+		return fmt.Errorf("error clearing cache : %w", err)
 	}
 
 	if err := s.sqlstorage.Delete(id); err != nil {

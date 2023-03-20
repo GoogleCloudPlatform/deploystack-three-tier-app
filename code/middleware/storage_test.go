@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"testing"
+	"time"
 
 	"github.com/gomodule/redigo/redis"
 	"github.com/stretchr/testify/assert"
@@ -41,7 +42,12 @@ func (m *MockCache) Get(key string) (Todo, error) {
 	if m.forceErr {
 		return Todo{}, errForced
 	}
-	t := m.store[key].(Todo)
+	tmp := m.store[key]
+	if tmp == nil {
+		return Todo{}, ErrCacheMiss
+	}
+
+	t := tmp.(Todo)
 	return t, nil
 }
 func (m *MockCache) InitPool(redisHost string, redisPort string) RedisPool {
@@ -52,8 +58,15 @@ func (m *MockCache) List() (Todos, error) {
 	if m.forceErr {
 		return Todos{}, errForced
 	}
-	t := m.store["todoslist"].(Todos)
-	return t, nil
+	t := Todos{}
+
+	tmp := m.store["todoslist"]
+
+	if tmp == nil {
+		return t, ErrCacheMiss
+	}
+
+	return tmp.(Todos), nil
 }
 func (m *MockCache) Save(todo Todo) error {
 	if m.forceErr {
@@ -118,6 +131,7 @@ func (m *MockDB) List() (Todos, error) {
 	todos := Todos{}
 	for _, v := range m.todos {
 		todos = append(todos, v)
+		log.Printf("%+v", v)
 	}
 	return todos, nil
 }
@@ -197,6 +211,259 @@ func TestStorageCreate(t *testing.T) {
 			}
 			assert.ErrorIs(t, err, tc.err)
 			assert.Equal(t, tc.want, got)
+
+		})
+	}
+}
+
+func TestStorageList(t *testing.T) {
+
+	todos := Todos{
+		Todo{
+			ID:        1,
+			Title:     "write a basic test",
+			Updated:   time.Date(2023, 03, 19, 10, 30, 0, 0, time.Local),
+			Completed: time.Date(2023, 03, 19, 10, 30, 0, 0, time.Local),
+			Complete:  true,
+		},
+		Todo{
+			ID:        2,
+			Title:     "write one more test",
+			Updated:   time.Date(2023, 03, 29, 10, 30, 0, 0, time.Local),
+			Completed: time.Date(2023, 03, 29, 10, 30, 0, 0, time.Local),
+		},
+	}
+
+	tests := map[string]struct {
+		want          Todos
+		forceCacheErr bool
+		forceSQLErr   bool
+		err           error
+	}{
+		"basic": {
+			want: todos,
+		},
+		"basicCacheErr": {
+			want:          Todos{},
+			forceCacheErr: true,
+			err:           errForced,
+		},
+		"basicSQLErr": {
+			want:        Todos{},
+			forceSQLErr: true,
+			err:         errForced,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			s := Storage{}
+			s.MockInit(tc.forceCacheErr, tc.forceSQLErr)
+
+			for _, v := range todos {
+				s.Create(v)
+			}
+
+			got, err := s.List()
+			if tc.err == nil {
+				require.Nil(t, err)
+			}
+			assert.ErrorIs(t, err, tc.err)
+			assert.Equal(t, tc.want, got)
+
+		})
+	}
+}
+
+func TestStorageRead(t *testing.T) {
+	tests := map[string]struct {
+		in            Todo
+		want          Todo
+		forceCacheErr bool
+		forceSQLErr   bool
+		err           error
+	}{
+		"basic": {
+			in: Todo{
+				Title: "write a basic test",
+			},
+			want: Todo{
+				ID:    1,
+				Title: "write a basic test",
+			},
+		},
+		"basicCacheErr": {
+			in: Todo{
+				Title: "write a basic test",
+			},
+			forceCacheErr: true,
+			err:           errForced,
+			want:          Todo{},
+		},
+		"basicSQLErr": {
+			in: Todo{
+				Title: "write a basic test",
+			},
+			forceSQLErr: true,
+			err:         errForced,
+			want:        Todo{},
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			s := Storage{}
+			s.MockInit(tc.forceCacheErr, tc.forceSQLErr)
+
+			got, err := s.Create(tc.in)
+			assert.ErrorIs(t, err, tc.err)
+			assert.Equal(t, tc.want, got)
+
+			got2, err := s.Read(got.Key())
+			assert.ErrorIs(t, err, tc.err)
+			assert.Equal(t, tc.want, got2)
+
+		})
+	}
+}
+
+func TestStorageDelete(t *testing.T) {
+	tests := map[string]struct {
+		in            Todo
+		want          Todo
+		forceCacheErr bool
+		forceSQLErr   bool
+		err           error
+	}{
+		"basic": {
+			in: Todo{
+				Title: "write a basic test",
+			},
+			want: Todo{
+				ID:    1,
+				Title: "write a basic test",
+			},
+		},
+		"basicCacheErr": {
+			in: Todo{
+				Title: "write a basic test",
+			},
+			forceCacheErr: true,
+			err:           errForced,
+			want:          Todo{},
+		},
+		"basicSQLErr": {
+			in: Todo{
+				Title: "write a basic test",
+			},
+			forceSQLErr: true,
+			err:         errForced,
+			want:        Todo{},
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			s := Storage{}
+			s.MockInit(tc.forceCacheErr, tc.forceSQLErr)
+
+			got, err := s.Create(tc.in)
+			assert.ErrorIs(t, err, tc.err)
+			assert.Equal(t, tc.want, got)
+
+			err = s.Delete(got.Key())
+			assert.ErrorIs(t, err, tc.err)
+
+			got2, err := s.Read(got.Key())
+			assert.ErrorIs(t, err, tc.err)
+			assert.Equal(t, Todo{}, got2)
+
+		})
+	}
+}
+
+func TestStorageUpdate(t *testing.T) {
+	tests := map[string]struct {
+		in            Todo
+		want          Todo
+		wantUpdate    Todo
+		forceCacheErr bool
+		forceSQLErr   bool
+		err           error
+	}{
+		"basic": {
+			in: Todo{
+				Title: "write a basic test",
+			},
+			want: Todo{
+				ID:    1,
+				Title: "write a basic test",
+			},
+			wantUpdate: Todo{
+				ID:    1,
+				Title: "write another test",
+			},
+		},
+		"basicCacheErr": {
+			in: Todo{
+				Title: "write a basic test",
+			},
+			want: Todo{
+				ID:    1,
+				Title: "write a basic test",
+			},
+			wantUpdate: Todo{
+				ID:    1,
+				Title: "write another test",
+			},
+			forceCacheErr: true,
+			err:           errForced,
+		},
+		"basicSQLErr": {
+			in: Todo{
+				Title: "write a basic test",
+			},
+			want: Todo{
+				ID:    1,
+				Title: "write a basic test",
+			},
+			wantUpdate: Todo{
+				ID:    1,
+				Title: "write another test",
+			},
+			forceSQLErr: true,
+			err:         errForced,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			s := Storage{}
+			s.MockInit(tc.forceCacheErr, tc.forceSQLErr)
+
+			got, err := s.Create(tc.in)
+			if tc.err == nil {
+				require.Nil(t, err)
+			}
+			assert.ErrorIs(t, err, tc.err)
+
+			if tc.forceCacheErr || tc.forceSQLErr {
+				assert.Equal(t, Todo{}, got)
+			} else {
+				assert.Equal(t, tc.want, got)
+			}
+
+			err = s.Update(tc.wantUpdate)
+			assert.ErrorIs(t, err, tc.err)
+
+			got2, err := s.Read(got.Key())
+			assert.ErrorIs(t, err, tc.err)
+
+			if tc.forceCacheErr || tc.forceSQLErr {
+				assert.Equal(t, Todo{}, got2)
+			} else {
+				assert.Equal(t, tc.wantUpdate, got2)
+			}
 
 		})
 	}

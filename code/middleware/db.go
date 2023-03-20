@@ -16,6 +16,7 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
 	"strconv"
 )
 
@@ -61,10 +62,7 @@ func (s SQLStorage) List() (Todos, error) {
 
 // Create records a new todo in the database.
 func (s SQLStorage) Create(t Todo) (Todo, error) {
-	sql := `
-		INSERT INTO todo(title, updated) 
-		VALUES(?,NOW())	
-	`
+	sql := `INSERT INTO todo(title, updated) VALUES(?,NOW())`
 
 	if t.Complete {
 		sql = `
@@ -125,6 +123,7 @@ func (s SQLStorage) Read(id string) (Todo, error) {
 func (s SQLStorage) Update(t Todo) error {
 	orig, err := s.Read(strconv.Itoa(t.ID))
 	if err != nil {
+		err = fmt.Errorf("update: could not read db: %w", err)
 		return err
 	}
 
@@ -152,12 +151,14 @@ func (s SQLStorage) Update(t Todo) error {
 
 	op, err := s.db.Prepare(sql)
 	if err != nil {
+		err = fmt.Errorf("update: could not prepare db: %w", err)
 		return err
 	}
 
 	_, err = op.Exec(t.Title, t.ID)
 
 	if err != nil {
+		err = fmt.Errorf("update: could not exec db: %w", err)
 		return err
 	}
 

@@ -48,6 +48,13 @@ type Cache struct {
 	enabled   bool
 }
 
+// TODO: delete if this is not needed
+// func (c *Cache) GetConn() redis.Conn {
+// 	conn := c.redisPool.Get()
+// 	return conn
+
+// }
+
 func (c *Cache) log(msg string) {
 	log.Printf("Cache     : %s\n", msg)
 }
@@ -94,10 +101,7 @@ func (c *Cache) Save(todo Todo) error {
 		return fmt.Errorf("cannot convert todo to json: %s", err)
 	}
 
-	conn.Send("MULTI")
-	conn.Send("SET", strconv.Itoa(todo.ID), json)
-
-	if _, err := conn.Do("EXEC"); err != nil {
+	if _, err := conn.Do("SET", strconv.Itoa(todo.ID), json); err != nil {
 		return fmt.Errorf("cannot perform exec operation on cache: %s", err)
 	}
 	c.log("Successfully saved todo to cache")

@@ -41,6 +41,18 @@ func NewCache(redisHost, redisPort string, enabled bool) (*Cache, error) {
 	return c, nil
 }
 
+type Cacher interface {
+	Clear() error
+	Delete(key string) error
+	DeleteList() error
+	Get(key string) (Todo, error)
+	InitPool(redisHost string, redisPort string) RedisPool
+	List() (Todos, error)
+	Save(todo Todo) error
+	SaveList(todos Todos) error
+	log(msg string)
+}
+
 // Cache abstracts all of the operations of caching for the application
 type Cache struct {
 	// redisPool *redis.Pool

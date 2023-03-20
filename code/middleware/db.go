@@ -20,6 +20,16 @@ import (
 	"strconv"
 )
 
+type DBStorer interface {
+	Close() error
+	Create(t Todo) (Todo, error)
+	Delete(id string) error
+	Init(user string, password string, host string, name string) error
+	List() (Todos, error)
+	Read(id string) (Todo, error)
+	Update(t Todo) error
+}
+
 // SQLStorage is a wrapper for database operations
 type SQLStorage struct {
 	db *sql.DB

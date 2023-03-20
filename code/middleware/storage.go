@@ -18,8 +18,8 @@ import "fmt"
 
 // Storage is a wrapper for combined cache and database operations
 type Storage struct {
-	sqlstorage SQLStorage
-	cache      *Cache
+	sqlstorage DBStorer
+	cache      Cacher
 }
 
 // Init kicks off the database connector
@@ -58,7 +58,7 @@ func (s Storage) List() (Todos, error) {
 // Create records a new todo in the database.
 func (s Storage) Create(t Todo) (Todo, error) {
 	if err := s.cache.DeleteList(); err != nil {
-		return Todo{}, fmt.Errorf("error clearing cache : %v", err)
+		return Todo{}, fmt.Errorf("error clearing cache : %w", err)
 	}
 
 	t, err := s.sqlstorage.Create(t)

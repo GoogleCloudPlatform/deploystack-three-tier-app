@@ -14,7 +14,9 @@
 
 package main
 
-import "fmt"
+import (
+	"fmt"
+)
 
 // Storage is a wrapper for combined cache and database operations
 type Storage struct {
@@ -22,13 +24,22 @@ type Storage struct {
 	cache      Cacher
 }
 
+func NewStorage() Storage {
+	s := Storage{}
+	s.cache = &Cache{}
+	s.sqlstorage = &SQLStorage{}
+
+	return s
+}
+
 // Init kicks off the database connector
 func (s *Storage) Init(user, password, host, name, redisHost, redisPort string, cache bool) error {
-	if err := s.sqlstorage.Init(user, password, host, name); err != nil {
+	err := s.sqlstorage.Init(user, password, host, name)
+	if err != nil {
 		return err
 	}
 
-	var err error
+	// var err error
 	s.cache, err = NewCache(redisHost, redisPort, cache)
 	if err != nil {
 		return err

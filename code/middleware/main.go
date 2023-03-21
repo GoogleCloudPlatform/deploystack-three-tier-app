@@ -41,6 +41,7 @@ func main() {
 
 	fmt.Printf("Port: %s\n", port)
 
+	storage = NewStorage()
 	if err := storage.Init(user, pass, host, name, redisHost, redisPort, true); err != nil {
 		panic(err)
 	}
@@ -49,11 +50,11 @@ func main() {
 	router := mux.NewRouter().StrictSlash(true)
 	router.HandleFunc("/healthz", healthHandler).Methods(http.MethodGet)
 	router.HandleFunc("/api/v1/healthz", healthHandler).Methods(http.MethodGet)
-	router.HandleFunc("/api/v1/todo", listHandler).Methods(http.MethodGet, http.MethodOptions)
-	router.HandleFunc("/api/v1/todo", createHandler).Methods(http.MethodPost)
-	router.HandleFunc("/api/v1/todo/{id}", readHandler).Methods(http.MethodGet)
-	router.HandleFunc("/api/v1/todo/{id}", deleteHandler).Methods(http.MethodDelete)
-	router.HandleFunc("/api/v1/todo/{id}", updateHandler).Methods(http.MethodPost, http.MethodPut)
+	router.HandleFunc("/api/v1/todo", listHandler(storage)).Methods(http.MethodGet, http.MethodOptions)
+	router.HandleFunc("/api/v1/todo", createHandler(storage)).Methods(http.MethodPost)
+	router.HandleFunc("/api/v1/todo/{id}", readHandler(storage)).Methods(http.MethodGet)
+	router.HandleFunc("/api/v1/todo/{id}", deleteHandler(storage)).Methods(http.MethodDelete)
+	router.HandleFunc("/api/v1/todo/{id}", updateHandler(storage)).Methods(http.MethodPost, http.MethodPut)
 
 	headersOk := handlers.AllowedHeaders([]string{"X-Requested-With"})
 	originsOk := handlers.AllowedOrigins([]string{"*"})
@@ -89,100 +90,122 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-func listHandler(w http.ResponseWriter, r *http.Request) {
-	ts, err := storage.List()
-	if err != nil {
-		writeErrorMsg(w, err)
-		return
-	}
-
-	writeJSON(w, ts, http.StatusOK)
-}
-
-func readHandler(w http.ResponseWriter, r *http.Request) {
-	id := mux.Vars(r)["id"]
-
-	_, err := strconv.Atoi(id)
-	if err != nil {
-		msg := Message{"invalid! id must be integer", fmt.Sprintf("todo id: %s", id)}
-		writeJSON(w, msg, http.StatusInternalServerError)
-		return
-	}
-
-	t, err := storage.Read(id)
-	if err != nil {
-
-		if strings.Contains(err.Error(), "Rows are closed") {
-			msg := Message{"todo not found", fmt.Sprintf("todo id: %s", id)}
-			writeJSON(w, msg, http.StatusNotFound)
+func listHandler(storage Storage) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ts, err := storage.List()
+		if err != nil {
+			writeErrorMsg(w, err)
 			return
 		}
 
-		writeErrorMsg(w, err)
-		return
+		writeJSON(w, ts, http.StatusOK)
 	}
-
-	writeJSON(w, t, http.StatusOK)
 }
 
-func createHandler(w http.ResponseWriter, r *http.Request) {
-	t := Todo{}
-	t.Title = r.FormValue("title")
+func readHandler(storage Storage) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := mux.Vars(r)["id"]
 
-	if len(r.FormValue("complete")) > 0 && r.FormValue("complete") != "false" {
-		t.Complete = true
+		_, err := strconv.Atoi(id)
+		if err != nil {
+			msg := Message{"invalid! id must be integer", fmt.Sprintf("todo id: %s", id)}
+			writeJSON(w, msg, http.StatusInternalServerError)
+			return
+		}
+
+		t, err := storage.Read(id)
+
+		if err != nil {
+
+			if strings.Contains(err.Error(), "Rows are closed") {
+				msg := Message{"todo not found", fmt.Sprintf("todo id: %s", id)}
+				writeJSON(w, msg, http.StatusNotFound)
+				return
+			}
+
+			writeErrorMsg(w, err)
+			return
+		}
+
+		emp := Todo{}
+
+		if t == emp {
+			msg := Message{"todo not found", fmt.Sprintf("todo id: %s", id)}
+			writeJSON(w, msg, http.StatusNotFound)
+		}
+
+		writeJSON(w, t, http.StatusOK)
 	}
-
-	t, err := storage.Create(t)
-	if err != nil {
-		writeErrorMsg(w, err)
-		return
-	}
-
-	writeJSON(w, t, http.StatusCreated)
 }
 
-func updateHandler(w http.ResponseWriter, r *http.Request) {
-	var err error
-	t := Todo{}
-	id := mux.Vars(r)["id"]
-	t.ID, err = strconv.Atoi(id)
-	if err != nil {
-		writeErrorMsg(w, err)
-		return
+func createHandler(storage Storage) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		t := Todo{}
+		t.Title = r.FormValue("title")
+
+		log.Printf("%v", t)
+
+		if len(r.FormValue("complete")) > 0 && r.FormValue("complete") != "false" {
+			t.Complete = true
+		}
+
+		t, err := storage.Create(t)
+		if err != nil {
+			writeErrorMsg(w, err)
+			return
+		}
+
+		log.Printf("%v", t)
+
+		writeJSON(w, t, http.StatusCreated)
 	}
-
-	t.Title = r.FormValue("title")
-
-	if len(r.FormValue("complete")) > 0 && r.FormValue("complete") != "false" {
-		t.Complete = true
-	}
-
-	if err = storage.Update(t); err != nil {
-		writeErrorMsg(w, err)
-		return
-	}
-
-	writeJSON(w, t, http.StatusOK)
 }
 
-func deleteHandler(w http.ResponseWriter, r *http.Request) {
-	id := mux.Vars(r)["id"]
+func updateHandler(storage Storage) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var err error
+		t := Todo{}
+		id := mux.Vars(r)["id"]
+		t.ID, err = strconv.Atoi(id)
+		if err != nil {
+			writeErrorMsg(w, err)
+			return
+		}
 
-	_, err := strconv.Atoi(id)
-	if err != nil {
-		msg := Message{"invalid! id must be integer", fmt.Sprintf("todo id: %s", id)}
-		writeJSON(w, msg, http.StatusInternalServerError)
-		return
+		t.Title = r.FormValue("title")
+
+		if len(r.FormValue("complete")) > 0 && r.FormValue("complete") != "false" {
+			t.Complete = true
+		}
+
+		if err = storage.Update(t); err != nil {
+			writeErrorMsg(w, err)
+			return
+		}
+
+		writeJSON(w, t, http.StatusOK)
 	}
+}
 
-	if err := storage.Delete(id); err != nil {
-		writeErrorMsg(w, err)
-		return
+func deleteHandler(storage Storage) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := mux.Vars(r)["id"]
+
+		_, err := strconv.Atoi(id)
+		if err != nil {
+			msg := Message{"invalid! id must be integer", fmt.Sprintf("todo id: %s", id)}
+			writeJSON(w, msg, http.StatusInternalServerError)
+			return
+		}
+
+		if err := storage.Delete(id); err != nil {
+			writeErrorMsg(w, err)
+			return
+		}
+		msg := Message{"todo deleted", fmt.Sprintf("todo id: %s", id)}
+
+		writeJSON(w, msg, http.StatusNoContent)
 	}
-	msg := Message{"todo deleted", fmt.Sprintf("todo id: %s", id)}
-
-	writeJSON(w, msg, http.StatusNoContent)
 }
 
 // JSONProducer is an interface that spits out a JSON string version of itself

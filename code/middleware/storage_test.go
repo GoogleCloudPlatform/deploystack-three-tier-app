@@ -13,6 +13,17 @@ import (
 
 var errForced = fmt.Errorf("forced error")
 
+func NewMockStorage(forceCacheErr, forceSQLErr bool, todos ...Todo) Storage {
+	s := Storage{}
+	s.MockInit(forceCacheErr, forceSQLErr)
+
+	for _, v := range todos {
+		s.Create(v)
+	}
+
+	return s
+}
+
 type MockCache struct {
 	store    map[string]interface{}
 	forceErr bool

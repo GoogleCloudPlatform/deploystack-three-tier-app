@@ -144,8 +144,6 @@ func createHandler(storage Storage) http.HandlerFunc {
 		t := Todo{}
 		t.Title = r.FormValue("title")
 
-		log.Printf("%v", t)
-
 		if len(r.FormValue("complete")) > 0 && r.FormValue("complete") != "false" {
 			t.Complete = true
 		}
@@ -155,8 +153,6 @@ func createHandler(storage Storage) http.HandlerFunc {
 			writeErrorMsg(w, err)
 			return
 		}
-
-		log.Printf("%v", t)
 
 		writeJSON(w, t, http.StatusCreated)
 	}

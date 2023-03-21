@@ -20,7 +20,8 @@ import (
 	"strconv"
 )
 
-type DBStorer interface {
+// SQLCRUDer is a wrapper for SQL operations, SQL server or mock
+type SQLCRUDer interface {
 	Close() error
 	Create(t Todo) (Todo, error)
 	Delete(id string) error

@@ -41,6 +41,7 @@ func NewCache(redisHost, redisPort string, enabled bool) (*Cache, error) {
 	return c, nil
 }
 
+// Cacher is a object that caches, could be redis, could be a mock
 type Cacher interface {
 	Clear() error
 	Delete(key string) error

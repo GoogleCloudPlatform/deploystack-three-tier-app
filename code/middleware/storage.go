@@ -20,10 +20,11 @@ import (
 
 // Storage is a wrapper for combined cache and database operations
 type Storage struct {
-	sqlstorage DBStorer
+	sqlstorage SQLCRUDer
 	cache      Cacher
 }
 
+// NewStorage creates a populated storage object to avoid nil pointers
 func NewStorage() Storage {
 	s := Storage{}
 	s.cache = &Cache{}

@@ -22,6 +22,7 @@ import (
 	"time"
 )
 
+// Todo is the basic datastruct for todos
 type Todo struct {
 	ID            int       `json:"id"`
 	Title         string    `json:"title"`
@@ -56,6 +57,7 @@ func (t Todo) Key() string {
 	return strconv.Itoa(t.ID)
 }
 
+// Todos are a collection of todo structs
 type Todos []Todo
 
 // JSON marshalls the content of a slice of todos to json.

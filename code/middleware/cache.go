@@ -41,12 +41,32 @@ func NewCache(redisHost, redisPort string, enabled bool) (*Cache, error) {
 	return c, nil
 }
 
+// Cacher is a object that caches, could be redis, could be a mock
+type Cacher interface {
+	Clear() error
+	Delete(key string) error
+	DeleteList() error
+	Get(key string) (Todo, error)
+	InitPool(redisHost string, redisPort string) RedisPool
+	List() (Todos, error)
+	Save(todo Todo) error
+	SaveList(todos Todos) error
+	log(msg string)
+}
+
 // Cache abstracts all of the operations of caching for the application
 type Cache struct {
 	// redisPool *redis.Pool
 	redisPool RedisPool
 	enabled   bool
 }
+
+// TODO: delete if this is not needed
+// func (c *Cache) GetConn() redis.Conn {
+// 	conn := c.redisPool.Get()
+// 	return conn
+
+// }
 
 func (c *Cache) log(msg string) {
 	log.Printf("Cache     : %s\n", msg)
@@ -94,10 +114,7 @@ func (c *Cache) Save(todo Todo) error {
 		return fmt.Errorf("cannot convert todo to json: %s", err)
 	}
 
-	conn.Send("MULTI")
-	conn.Send("SET", strconv.Itoa(todo.ID), json)
-
-	if _, err := conn.Do("EXEC"); err != nil {
+	if _, err := conn.Do("SET", strconv.Itoa(todo.ID), json); err != nil {
 		return fmt.Errorf("cannot perform exec operation on cache: %s", err)
 	}
 	c.log("Successfully saved todo to cache")

@@ -168,10 +168,10 @@ resource "google_artifact_registry_repository" "todo_app" {
 # Handle secrets
 resource "google_secret_manager_secret" "redishost" {
   project = var.project_number
-  replication {
-    automatic = true
-  }
   secret_id  = "redishost"
+  replication {
+    auto {}
+  }
   depends_on = [google_project_service.all]
 }
 
@@ -184,10 +184,10 @@ resource "google_secret_manager_secret_version" "redishost" {
 
 resource "google_secret_manager_secret" "sqlhost" {
   project = var.project_number
-  replication {
-    automatic = true
-  }
   secret_id  = "sqlhost"
+  replication {
+    auto {}
+  }
   depends_on = [google_project_service.all]
 }
 

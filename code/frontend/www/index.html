@@ -20,6 +20,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https: http:; object-src 'none'; base-uri 'self';">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Lato:wght@100;400;900&display=swap" rel="stylesheet">
@@ -30,6 +31,10 @@
 </head>
 <body>
         <h1>TODOs</h1>
+        <div class="auth-bar">
+            <label for="api-token">API Token:</label>
+            <input type="password" id="api-token" placeholder="Enter API token to modify tasks" autocomplete="off">
+        </div>
         <div class="content">
 
         </div>

@@ -107,6 +107,16 @@ resource "random_id" "id" {
   byte_length = 2
 }
 
+resource "random_password" "todo_user" {
+  length  = 32
+  special = false
+}
+
+resource "random_password" "api_auth_token" {
+  length  = 32
+  special = false
+}
+
 # Handle Database
 resource "google_sql_database_instance" "main" {
   name             = "${var.basename}-db-${random_id.id.hex}"
@@ -137,6 +147,13 @@ resource "google_sql_database_instance" "main" {
     working_dir = "${path.module}/../code/database"
     command     = "./load_schema.sh ${var.project_id} ${google_sql_database_instance.main.name}"
   }
+}
+
+resource "google_sql_user" "todo_user" {
+  name     = "todo_user"
+  instance = google_sql_database_instance.main.name
+  password = random_password.todo_user.result
+  project  = var.project_id
 }
 
 # Handle redis instance
@@ -198,6 +215,38 @@ resource "google_secret_manager_secret_version" "sqlhost" {
   depends_on  = [google_project_service.all, google_sql_database_instance.main, google_secret_manager_secret.sqlhost]
 }
 
+resource "google_secret_manager_secret" "todo_pass" {
+  project = var.project_number
+  replication {
+    automatic = true
+  }
+  secret_id  = "todo_pass"
+  depends_on = [google_project_service.all]
+}
+
+resource "google_secret_manager_secret_version" "todo_pass" {
+  enabled     = true
+  secret      = "projects/${var.project_number}/secrets/todo_pass"
+  secret_data = random_password.todo_user.result
+  depends_on  = [google_project_service.all, google_secret_manager_secret.todo_pass]
+}
+
+resource "google_secret_manager_secret" "api_auth_token" {
+  project = var.project_number
+  replication {
+    automatic = true
+  }
+  secret_id  = "api_auth_token"
+  depends_on = [google_project_service.all]
+}
+
+resource "google_secret_manager_secret_version" "api_auth_token" {
+  enabled     = true
+  secret      = "projects/${var.project_number}/secrets/api_auth_token"
+  secret_data = random_password.api_auth_token.result
+  depends_on  = [google_project_service.all, google_secret_manager_secret.api_auth_token]
+}
+
 resource "null_resource" "cloudbuild_api" {
   provisioner "local-exec" {
     working_dir = "${path.module}/../code/middleware"
@@ -208,6 +257,8 @@ resource "null_resource" "cloudbuild_api" {
     google_artifact_registry_repository.todo_app,
     google_secret_manager_secret_version.redishost,
     google_secret_manager_secret_version.sqlhost,
+    google_secret_manager_secret_version.todo_pass,
+    google_secret_manager_secret_version.api_auth_token,
     google_project_service.all
   ]
 }
@@ -242,11 +293,29 @@ resource "google_cloud_run_service" "api" {
         }
         env {
           name  = "todo_user"
-          value = "todo_user"
+          value = google_sql_user.todo_user.name
         }
         env {
-          name  = "todo_pass"
-          value = "todo_pass"
+          name = "todo_pass"
+          value_from {
+            secret_key_ref {
+              name = google_secret_manager_secret.todo_pass.secret_id
+              key  = "latest"
+            }
+          }
+        }
+        env {
+          name = "API_AUTH_TOKEN"
+          value_from {
+            secret_key_ref {
+              name = google_secret_manager_secret.api_auth_token.secret_id
+              key  = "latest"
+            }
+          }
+        }
+        env {
+          name  = "FRONTEND_ORIGIN"
+          value = var.frontend_origin
         }
         env {
           name  = "todo_name"
@@ -274,6 +343,10 @@ resource "google_cloud_run_service" "api" {
   autogenerate_revision_name = true
   depends_on = [
     null_resource.cloudbuild_api,
+    google_project_iam_member.allrun,
+    google_sql_user.todo_user,
+    google_secret_manager_secret_version.todo_pass,
+    google_secret_manager_secret_version.api_auth_token,
   ]
 }
 
@@ -306,6 +379,23 @@ resource "google_cloud_run_service" "fe" {
     }
   }
   depends_on = [null_resource.cloudbuild_fe]
+}
+
+resource "null_resource" "api_cors_origin" {
+  triggers = {
+    fe_url          = google_cloud_run_service.fe.status[0].url
+    frontend_origin = var.frontend_origin
+    api_revision    = google_cloud_run_service.api.status[0].latest_created_revision_name
+  }
+
+  provisioner "local-exec" {
+    command = "gcloud run services update ${google_cloud_run_service.api.name} --project=${var.project_id} --region=${var.region} --update-env-vars=\"^@^FRONTEND_ORIGIN=${var.frontend_origin != "" ? var.frontend_origin : google_cloud_run_service.fe.status[0].url}\""
+  }
+
+  depends_on = [
+    google_cloud_run_service.api,
+    google_cloud_run_service.fe,
+  ]
 }
 
 resource "google_cloud_run_service_iam_member" "noauth_api" {

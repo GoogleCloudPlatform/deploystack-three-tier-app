@@ -21,6 +21,18 @@ document.addEventListener('DOMContentLoaded', function(){
 });
 
 
+function getAuthToken() {
+    let tokenInput = document.getElementById("api-token");
+    return tokenInput ? tokenInput.value.trim() : "";
+}
+
+function setAuthHeader(xmlhttp) {
+    let token = getAuthToken();
+    if (token.length > 0) {
+        xmlhttp.setRequestHeader("Authorization", "Bearer " + token);
+    }
+}
+
 function listTodos() {
     var xmlhttp = new XMLHttpRequest();
 
@@ -45,7 +57,7 @@ function listTodos() {
 function renderListTodos(resp){
     let todos = JSON.parse(resp);
     let content = document.querySelector(".content");
-    content.innerHTML = "";
+    content.textContent = "";
 
     let ul = document.createElement("ul");
     ul.classList.add("list")
@@ -84,7 +96,7 @@ function renderNewTodo(){
     editor.id = `todo-new`;
     editor.addEventListener("blur", createHandler);
     editor.addEventListener("keypress", catchEnter);
-    editor.addEventListener("click", function(e){e.target.focus();e.target.innerHTML = "   "});
+    editor.addEventListener("click", function(e){e.target.focus();e.target.textContent = "   "});
 
 
     let h1 = document.createElement("h1");
@@ -115,13 +127,13 @@ function renderTodo(todo){
     let editor = document.createElement("span");
     editor.classList.add("editor");
     editor.contentEditable = true;
-    editor.innerHTML = todo.title;
+    editor.textContent = todo.title;
     editor.id = `todo-${todo.id}`;
     editor.addEventListener("blur", blurHandler);
 
     let icon = document.createElement("span");
     icon.classList.add("material-icons", "delete");
-    icon.innerHTML = "delete";
+    icon.textContent = "delete";
     icon.id = `todo-${todo.id}-delete`;
     icon.addEventListener("click", deleteHandler);
 
@@ -139,16 +151,16 @@ function renderTodo(todo){
 
 function blurHandler(e){
     let complete = e.target.parentElement.childNodes[0].checked;
-    let title = e.target.innerHTML;
+    let title = e.target.textContent;
     let id = e.target.id.split("-")[1];
     updateTodo(id, title, complete);
 }
 
 function createHandler(e){
-    let title = e.target.innerHTML;
+    let title = e.target.textContent;
 
     if (title.trim().length == 0){
-        e.target.innerHTML= "";
+        e.target.textContent = "";
         return
     }
 
@@ -165,7 +177,7 @@ function catchEnter(e){
 
 function checkHandler(e){
     let complete = e.target.checked;
-    let title = e.target.parentElement.childNodes[1].innerHTML;
+    let title = e.target.parentElement.childNodes[1].textContent;
     let id = e.target.parentElement.childNodes[1].id.split("-")[1];
 
 
@@ -194,6 +206,10 @@ function updateTodo(id, title, complete){
            if (xmlhttp.status == 200) {
                 listTodos();
            }
+           else if (xmlhttp.status == 401) {
+              alert('Unauthorized: please enter a valid API token.');
+              listTodos();
+           }
            else if (xmlhttp.status == 400) {
               alert('There was an error 400');
            }
@@ -204,6 +220,7 @@ function updateTodo(id, title, complete){
     };
 
     xmlhttp.open("POST", basepath+"/"+ id, true);
+    setAuthHeader(xmlhttp);
     xmlhttp.send(form);
 }
 
@@ -217,6 +234,10 @@ function createTodo(title){
            if (xmlhttp.status == 201) {
                 listTodos();
            }
+           else if (xmlhttp.status == 401) {
+              alert('Unauthorized: please enter a valid API token.');
+              listTodos();
+           }
            else if (xmlhttp.status == 400) {
               alert('There was an error 400');
            }
@@ -228,6 +249,7 @@ function createTodo(title){
     };
 
     xmlhttp.open("POST", basepath, true);
+    setAuthHeader(xmlhttp);
     xmlhttp.send(form);
 }
 
@@ -238,6 +260,9 @@ function deleteTodo(id){
         if (xmlhttp.readyState == XMLHttpRequest.DONE) {   // XMLHttpRequest.DONE == 4
            if (xmlhttp.status == 204) {
             listTodos();
+           }
+           else if (xmlhttp.status == 401) {
+              alert('Unauthorized: please enter a valid API token.');
            }
            else if (xmlhttp.status == 400) {
               alert('There was an error 400');
@@ -250,5 +275,6 @@ function deleteTodo(id){
     };
 
     xmlhttp.open("DELETE", basepath+"/"+ id, true);
+    setAuthHeader(xmlhttp);
     xmlhttp.send();
 }

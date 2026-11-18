@@ -91,6 +91,8 @@ SQLNAME=$(terraform output -raw sqlservername)
 section_open "Deleting Secrets"
 	gcloud secrets delete sqlhost -q --no-user-output-enabled
 	gcloud secrets delete redishost -q --no-user-output-enabled
+	gcloud secrets delete todo_pass -q --no-user-output-enabled
+	gcloud secrets delete api_auth_token -q --no-user-output-enabled
 section_close
 
 section_open "Delete Cloud Run Services"

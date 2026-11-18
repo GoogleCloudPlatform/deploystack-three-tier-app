@@ -100,6 +100,8 @@ FE_URL=$(terraform -chdir="$terraformDIR" output -raw endpoint)
 section_open "Testing Secrets"
     evalTest 'gcloud secrets describe sqlhost --format="value(name)" | xargs' "projects/$PROJECT_NUMBER/secrets/sqlhost"
     evalTest 'gcloud secrets describe redishost --format="value(name)"' "projects/$PROJECT_NUMBER/secrets/redishost"
+    evalTest 'gcloud secrets describe todo_pass --format="value(name)"' "projects/$PROJECT_NUMBER/secrets/todo_pass"
+    evalTest 'gcloud secrets describe api_auth_token --format="value(name)"' "projects/$PROJECT_NUMBER/secrets/api_auth_token"
 section_close
 
 section_open "Test Cloud Run Services"
@@ -131,6 +133,9 @@ section_close
 
 section_open "Testing API is working"
     evalTest 'curl -s -o /dev/null -w "%{http_code}" $API_URL/api/v1/todo' "200"
+    evalTest 'curl -s -o /dev/null -w "%{http_code}" -X POST -d "title=unauth" $API_URL/api/v1/todo' "401"
+    API_TOKEN=$(gcloud secrets versions access latest --secret=api_auth_token)
+    evalTest 'curl -s -o /dev/null -w "%{http_code}" -X POST -H "Authorization: Bearer $API_TOKEN" -d "title=authtest" $API_URL/api/v1/todo' "201"
 section_close
 
 section_open "Testing JS is written properly"
@@ -144,6 +149,8 @@ terraform -chdir="$terraformDIR" destroy -auto-approve -var project_id="${PROJEC
 section_open "Testing Secrets"
     evalTest 'gcloud secrets describe sqlhost --format="value(name)"' "EXPECTERROR"
     evalTest 'gcloud secrets describe redishost --format="value(name)"' "EXPECTERROR"
+    evalTest 'gcloud secrets describe todo_pass --format="value(name)"' "EXPECTERROR"
+    evalTest 'gcloud secrets describe api_auth_token --format="value(name)"' "EXPECTERROR"
 section_close
 
 section_open "Test Cloud Run Services"

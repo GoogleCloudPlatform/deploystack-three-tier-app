@@ -15,18 +15,24 @@
 package main
 
 import (
+	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 )
+
+const maxTitleLength = 512
 
 var storage Storage
 
@@ -38,8 +44,12 @@ func main() {
 	redisHost := os.Getenv("REDISHOST")
 	redisPort := os.Getenv("REDISPORT")
 	port := os.Getenv("PORT")
+	apiAuthToken := strings.TrimSpace(os.Getenv("API_AUTH_TOKEN"))
 
 	fmt.Printf("Port: %s\n", port)
+	if apiAuthToken == "" {
+		log.Println("Warning: API_AUTH_TOKEN is not set; state-changing endpoints will reject all requests")
+	}
 
 	if err := storage.Init(user, pass, host, name, redisHost, redisPort, true); err != nil {
 		panic(err)
@@ -49,38 +59,80 @@ func main() {
 	router := mux.NewRouter().StrictSlash(true)
 	router.HandleFunc("/healthz", healthHandler).Methods(http.MethodGet)
 	router.HandleFunc("/api/v1/healthz", healthHandler).Methods(http.MethodGet)
-	router.HandleFunc("/api/v1/todo", listHandler).Methods(http.MethodGet, http.MethodOptions)
-	router.HandleFunc("/api/v1/todo", createHandler).Methods(http.MethodPost)
+	router.HandleFunc("/api/v1/todo", listHandler).Methods(http.MethodGet)
+	router.HandleFunc("/api/v1/todo", requireAuth(apiAuthToken, createHandler)).Methods(http.MethodPost)
 	router.HandleFunc("/api/v1/todo/{id}", readHandler).Methods(http.MethodGet)
-	router.HandleFunc("/api/v1/todo/{id}", deleteHandler).Methods(http.MethodDelete)
-	router.HandleFunc("/api/v1/todo/{id}", updateHandler).Methods(http.MethodPost, http.MethodPut)
+	router.HandleFunc("/api/v1/todo/{id}", requireAuth(apiAuthToken, deleteHandler)).Methods(http.MethodDelete)
+	router.HandleFunc("/api/v1/todo/{id}", requireAuth(apiAuthToken, updateHandler)).Methods(http.MethodPost, http.MethodPut)
 
-	headersOk := handlers.AllowedHeaders([]string{"X-Requested-With"})
-	originsOk := handlers.AllowedOrigins([]string{"*"})
-	methodsOk := handlers.AllowedMethods([]string{"GET", "HEAD", "POST", "PUT", "OPTIONS", "DELETE"})
-
-	log.Fatal(http.ListenAndServe(":"+port, handlers.CORS(originsOk, headersOk, methodsOk)(router)))
-}
-
-// CORSRouterDecorator applies CORS headers to a mux.Router
-type CORSRouterDecorator struct {
-	R *mux.Router
-}
-
-// ServeHTTP wraps the HTTP server enabling CORS headers.
-// For more info about CORS, visit https://www.w3.org/TR/cors/
-func (c *CORSRouterDecorator) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
-	if origin := req.Header.Get("Origin"); origin != "" {
-		rw.Header().Set("Access-Control-Allow-Origin", origin)
-		rw.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
-		rw.Header().Set("Access-Control-Allow-Headers", "Accept, Accept-Language, Content-Type, YourOwnHeader")
-	}
-	// Stop here if its Preflighted OPTIONS request
-	if req.Method == "OPTIONS" {
-		return
+	var handler http.Handler = router
+	allowedOrigins := parseAllowedOrigins(os.Getenv("FRONTEND_ORIGIN"))
+	if len(allowedOrigins) > 0 {
+		headersOk := handlers.AllowedHeaders([]string{"X-Requested-With", "Content-Type", "Authorization"})
+		originsOk := handlers.AllowedOrigins(allowedOrigins)
+		methodsOk := handlers.AllowedMethods([]string{"GET", "HEAD", "POST", "PUT", "OPTIONS", "DELETE"})
+		handler = handlers.CORS(originsOk, headersOk, methodsOk)(router)
+	} else {
+		log.Println("FRONTEND_ORIGIN is not set; cross-origin CORS requests are disabled")
 	}
 
-	c.R.ServeHTTP(rw, req)
+	log.Fatal(http.ListenAndServe(":"+port, handler))
+}
+
+func parseAllowedOrigins(raw string) []string {
+	var origins []string
+	for _, entry := range strings.Split(raw, ",") {
+		origin := strings.TrimSpace(entry)
+		origin = strings.TrimRight(origin, "/")
+		if origin == "" || origin == "*" {
+			continue
+		}
+		u, err := url.Parse(origin)
+		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+			log.Printf("Ignoring invalid FRONTEND_ORIGIN entry: %q", entry)
+			continue
+		}
+		origins = append(origins, u.Scheme+"://"+u.Host)
+	}
+	return origins
+}
+
+func extractBearerToken(r *http.Request) (string, bool) {
+	authHeader := strings.TrimSpace(r.Header.Get("Authorization"))
+	if authHeader == "" {
+		return "", false
+	}
+	parts := strings.SplitN(authHeader, " ", 2)
+	if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
+		return "", false
+	}
+	token := strings.TrimSpace(parts[1])
+	if token == "" {
+		return "", false
+	}
+	return token, true
+}
+
+func validAuthToken(provided, expected string) bool {
+	if expected == "" || provided == "" {
+		return false
+	}
+	providedHash := sha256.Sum256([]byte(provided))
+	expectedHash := sha256.Sum256([]byte(expected))
+	return subtle.ConstantTimeCompare(providedHash[:], expectedHash[:]) == 1
+}
+
+func requireAuth(expectedToken string, next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		token, ok := extractBearerToken(r)
+		if !ok || !validAuthToken(token, expectedToken) {
+			w.Header().Set("WWW-Authenticate", `Bearer realm="todo-api"`)
+			msg := Message{"unauthorized", "valid Bearer token required"}
+			writeJSON(w, msg, http.StatusUnauthorized)
+			return
+		}
+		next(w, r)
+	}
 }
 
 func healthHandler(w http.ResponseWriter, r *http.Request) {
@@ -128,6 +180,11 @@ func readHandler(w http.ResponseWriter, r *http.Request) {
 func createHandler(w http.ResponseWriter, r *http.Request) {
 	t := Todo{}
 	t.Title = r.FormValue("title")
+	if utf8.RuneCountInString(t.Title) > maxTitleLength {
+		msg := Message{"invalid title", fmt.Sprintf("title must not exceed %d characters", maxTitleLength)}
+		writeJSON(w, msg, http.StatusBadRequest)
+		return
+	}
 
 	if len(r.FormValue("complete")) > 0 && r.FormValue("complete") != "false" {
 		t.Complete = true
@@ -153,6 +210,11 @@ func updateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	t.Title = r.FormValue("title")
+	if utf8.RuneCountInString(t.Title) > maxTitleLength {
+		msg := Message{"invalid title", fmt.Sprintf("title must not exceed %d characters", maxTitleLength)}
+		writeJSON(w, msg, http.StatusBadRequest)
+		return
+	}
 
 	if len(r.FormValue("complete")) > 0 && r.FormValue("complete") != "false" {
 		t.Complete = true
@@ -202,18 +264,20 @@ func writeJSON(w http.ResponseWriter, j JSONProducer, status int) {
 }
 
 func writeErrorMsg(w http.ResponseWriter, err error) {
-	s := fmt.Sprintf("{\"error\":\"%s\"}", err)
-	writeResponse(w, http.StatusInternalServerError, s)
-	return
+	payload, marshalErr := json.Marshal(map[string]string{"error": err.Error()})
+	if marshalErr != nil {
+		writeResponse(w, http.StatusInternalServerError, `{"error":"internal server error"}`)
+		return
+	}
+	writeResponse(w, http.StatusInternalServerError, string(payload))
 }
 
 func writeResponse(w http.ResponseWriter, status int, msg string) {
 	if status != http.StatusOK {
-		weblog(fmt.Sprintf(msg))
+		weblog(msg)
 	}
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type,access-control-allow-origin, access-control-allow-headers")
 	w.WriteHeader(status)
 	w.Write([]byte(msg))
 

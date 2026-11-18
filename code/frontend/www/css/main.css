@@ -25,6 +25,18 @@ h1{
     font-weight: 900;
 }
 
+.auth-bar{
+    margin-bottom: 16px;
+    font-weight: 400;
+    font-size: 14px;
+}
+
+.auth-bar input{
+    margin-left: 8px;
+    padding: 4px 8px;
+    width: 260px;
+}
+
 .todo h1{
     font-weight: 400;
     font-size: 14px;

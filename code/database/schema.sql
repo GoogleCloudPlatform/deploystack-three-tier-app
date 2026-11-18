@@ -38,8 +38,5 @@ VALUES
 /*!40000 ALTER TABLE `todo` ENABLE KEYS */;
 UNLOCK TABLES;
 
-CREATE USER 'todo_user'@'localhost' IDENTIFIED BY 'todo_pass';
-CREATE USER 'todo_user'@'%' IDENTIFIED BY 'todo_pass';
-
-GRANT ALL ON todo.* TO 'todo_user'@'localhost';
-GRANT ALL ON todo.* TO 'todo_user'@'%';
+-- The application database user is provisioned by Terraform
+-- (google_sql_user.todo_user with a generated random_password stored in Secret Manager).

@@ -15,7 +15,7 @@
 steps:
    - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
      entrypoint: bash
-     args: [ './massage.sh', '$_REGION' ]
+     args: [ './massage.sh', '$_REGION', '$_BASENAME' ]
    - name: 'gcr.io/cloud-builders/docker'
      args: [ 'build', '-t', '$_REGION-docker.pkg.dev/$PROJECT_ID/$_BASENAME-app/fe', '.' ]
    - name: 'gcr.io/cloud-builders/docker'

@@ -17,7 +17,6 @@ COPY my.cnf /etc/my.cnf
 COPY schema.sql schema.sql
 
 
-ENV MYSQL_DATABASE=todo \
-    MYSQL_ROOT_PASSWORD=password
+ENV MYSQL_DATABASE=todo
 
 ADD schema.sql /docker-entrypoint-initdb.d

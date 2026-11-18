@@ -34,6 +34,12 @@ variable "basename" {
   type = string
 }
 
+variable "frontend_origin" {
+  description = "Optional explicit allowed CORS origin(s) for the API; defaults to the deployed frontend Cloud Run URL."
+  type        = string
+  default     = ""
+}
+
 locals {
   sabuild = "${var.project_number}@cloudbuild.gserviceaccount.com"
 }

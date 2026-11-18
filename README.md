@@ -18,6 +18,13 @@ below.
 Clicking this link will take you right to the DeployStack app, running in your 
 Cloud Shell environment. It will walk you through setting up your architecture.  
 
+### API Authentication
+State-changing API endpoints (`POST`, `PUT`, `DELETE`) require a Bearer token (`Authorization: Bearer <token>`). During deployment, Terraform generates a random token and stores it in Secret Manager under `api_auth_token`. To retrieve it for use in the frontend UI or CLI:
+
+```bash
+gcloud secrets versions access latest --secret=api_auth_token
+```
+
 ## Cleanup 
 To remove all billing components from the project
 1. Typing `deploystack uninstall`
